@@ -183,7 +183,7 @@ const DEFAULT_SLOTS = [[0,"09:00"],[0,"10:00"],[0,"11:00"],[6,"09:00"],[6,"10:00
 
 const S = { payments:[], payId:null, payBk:null, settings:structuredClone(DEFAULT_SETTINGS), slots:[], holds:[], bookings:[], mine:{},
   mode:"loading", fs:null, F:null, auth:null, A:null, admin:null, tab:"book", adminFilter:"pending", schedCoach:"all",
-  form:{step:1, child:{}, pkg:null, perWeek:2, slots:[], coachPref:"any", start:"", payer:"", ref:"", mode:"custom", pref:"", ptype:"p1", c2n:"", c2a:"", sibs:[]}, lastBooking:null };
+  form:{step:1, child:{}, pkg:null, perWeek:2, slots:[], coachPref:"any", start:"", payer:"", ref:"", mode:"custom", pref:"", req:[{day:"",time:""},{day:"",time:""}], alt:"", ptype:"p1", c2n:"", c2a:"", sibs:[]}, lastBooking:null };
 
 /* ---------- helpers ---------- */
 const $=id=>document.getElementById(id);
@@ -371,7 +371,8 @@ function renderBook(){
     f.mode="custom";
     el.innerHTML=`<div class="card">${steps}<h2>3. Your preferred times</h2>
       ${f.mode==="custom"?`<p class="muted">Write the days and times that suit you — <b>${f.perWeek} times a week</b>, ${(f.pkg&&pkgOf(f.pkg).minutes)||st.sessionMinutes}-minute sessions. The coach will confirm your time on WhatsApp.</p>
-      <label>Days and times that suit you</label><textarea id="f-pref" rows="3" placeholder="e.g. Sunday & Tuesday after 5 PM, or Friday morning">${esc(f.pref)}</textarea>`:`<p class="muted">Pick <b>${need}</b> weekly ${need===1?"slot":"slots"} (${(f.pkg&&pkgOf(f.pkg).minutes)||st.sessionMinutes}-minute sessions). Your slot repeats every week until the package ends. No slot fits? Tap “Suggest my own time”.</p>
+      ${[0,1].map(i=>`<div class="row"><div><label>${i?"Second":"First"} day</label><select id="f-rd${i}"><option value="">— Day —</option>${DAYS.map((d,k)=>`<option value="${k}" ${String(f.req[i].day)===String(k)?"selected":""}>${d}</option>`).join("")}</select></div><div><label>Time</label><input id="f-rt${i}" type="time" value="${esc(f.req[i].time)}"></div></div>`).join("")}
+      <label>Other times that also work <span class="muted">(optional)</span></label><textarea id="f-alt" rows="2" placeholder="e.g. any weekday after 5 PM">${esc(f.alt)}</textarea>`:`<p class="muted">Pick <b>${need}</b> weekly ${need===1?"slot":"slots"} (${(f.pkg&&pkgOf(f.pkg).minutes)||st.sessionMinutes}-minute sessions). Your slot repeats every week until the package ends. No slot fits? Tap “Suggest my own time”.</p>
       ${Object.keys(byDay).length?Object.keys(byDay).map(d=>`<div class="day">${DAYS[d]}</div><div class="chips">${byDay[d].map(s=>{
         const left=spotsFor(f.ptype,s.id),on=f.slots.includes(s.id),full=left<=0&&!on,prefOk=f.coachPref==="any"||coachFree(f.coachPref,s.id,f.ptype),gf=f.ptype==="group"?groupFill(s.id):0;
         return `<button class="chip slot ${on?"on":""} ${full?"full":""}" data-slot="${s.id}" ${full?"disabled":""}>${fmtTime(s.time)}<small>${full?"Full":gf?`Group ${gf}/3 — join`:f.ptype==="group"?"New group":"Available"}${!full&&!prefOk?" • other coach":""}</small></button>`}).join("")}</div>`).join(""):`<div class="empty">No open slots right now — tap “Suggest my own time”.</div>`}`}
@@ -401,6 +402,7 @@ function renderBook(){
   }
 }
 function readStep1(){const g=id=>$(id)?.value.trim()||"";S.form.child={childName:g("f-child"),age:g("f-age"),gender:g("f-gender"),level:g("f-level"),parentName:g("f-parent"),phone:g("f-phone").replace(/\s/g,""),notes:g("f-notes")}}
+function keepReq(){const f=S.form;for(const i of [0,1]){if($("f-rd"+i))f.req[i]={day:$("f-rd"+i).value,time:$("f-rt"+i).value}}if($("f-alt"))f.alt=$("f-alt").value.trim()}
 function keep2(){const f=S.form;if($("f-c2n")){f.c2n=$("f-c2n").value.trim();f.c2a=$("f-c2a").value.trim()}
   for(let i=0;$("f-sib"+i+"n");i++)f.sibs[i]={name:$("f-sib"+i+"n").value.trim(),age:$("f-sib"+i+"a").value.trim()}}
 function sibsNeeded(){const f=S.form,p=f.pkg&&pkgOf(f.pkg);return f.ptype==="sib"&&p&&p.type==="sib"?Math.max(1,(Number(p.count)||2)-1):0}
@@ -413,7 +415,7 @@ $("v-book").addEventListener("click",async e=>{
   if(t.dataset.pw){keep2();f.perWeek=+t.dataset.pw;f.slots=[];return forceBook()}
   if(t.dataset.cp){keep2();f.coachPref=t.dataset.cp;return forceBook()}
   if(t.dataset.ty){keep2();if(t.dataset.ty==="baby")f.child.level="Baby swimming";f.ptype=t.dataset.ty;f.pkg=null;f.slots=[];return forceBook()}
-  if(t.dataset.mode){f.start=$("f-start")?.value||f.start;if($("f-pref"))f.pref=$("f-pref").value;f.mode=t.dataset.mode;return forceBook()}
+  if(t.dataset.mode){f.start=$("f-start")?.value||f.start;keepReq();f.mode=t.dataset.mode;return forceBook()}
   if(t.dataset.slot){const need=Math.min(f.perWeek,pkgOf(f.pkg).sessions);f.start=$("f-start")?.value||f.start;const i=f.slots.indexOf(t.dataset.slot);
     if(i>=0)f.slots.splice(i,1);else{if(f.slots.length>=need)f.slots.shift();f.slots.push(t.dataset.slot)}return forceBook()}
   const a=t.dataset.act;
@@ -425,7 +427,10 @@ $("v-book").addEventListener("click",async e=>{
   if(a==="s2next"){keep2();if(f.ptype==="p2"&&(!f.c2n||!f.c2a))return toast("Enter the second swimmer's name and age");
     {const n=sibsNeeded();for(let i=0;i<n;i++){const x=f.sibs[i]||{};if(!x.name||!x.age)return toast("Enter each sibling's name and age")}}if(!f.pkg)return toast("Choose a package");f.step=3;forceBook();scrollTo(0,0)}
   if(a==="s3next"){f.start=$("f-start").value;if(!f.start)return toast("Choose a start date");
-    if(f.mode==="custom"){f.pref=($("f-pref")?.value||"").trim();if(f.pref.length<3)return toast("Write the days and times that suit you");f.slots=[]}
+    if(f.mode==="custom"){keepReq();
+      if(f.req.some(r=>r.day===""||!r.time))return toast("Choose 2 days and a time for each");
+      if(f.req[0].day===f.req[1].day)return toast("Choose two different days");
+      f.pref=f.req.map(r=>`${DAYS[r.day]} ${fmtTime(r.time)}`).join(", ")+(f.alt?` (also OK: ${f.alt})`:"");f.slots=[]}
     f.step=4;forceBook();scrollTo(0,0)}
   if(a==="back"){if($("f-notes2"))f.child.notes=$("f-notes2").value.trim();if(f.step===4&&$("f-payer")){f.payer=$("f-payer").value;f.ref=$("f-ref").value}if(f.step===3){f.start=$("f-start").value;if($("f-pref"))f.pref=$("f-pref").value}f.step--;forceBook()}
   if(a==="copyIpa"){try{await navigator.clipboard.writeText(S.settings.ipa);toast("Copied ✔")}catch(_){toast(S.settings.ipa)}}
@@ -436,10 +441,10 @@ $("v-book").addEventListener("click",async e=>{
     else{f.payer="";f.ref=""}
     for(const s of f.slots)if(spotsFor(f.ptype,s)<=0){toast(slotLabel(s)+" was just taken — please pick another");f.slots=f.slots.filter(x=>x!==s);f.step=3;return forceBook()}
     const p=pkgOf(f.pkg);
-    const b={...f.child,package:p.label,ptype:f.ptype,sessionType:TYPES[f.ptype].short,child2Name:f.ptype==="p2"?f.c2n.slice(0,60):"",child2Age:f.ptype==="p2"?f.c2a.slice(0,20):"",siblings:f.ptype==="sib"?f.sibs.slice(0,sibsNeeded()).map(x=>`${x.name.slice(0,60)} (${x.age.slice(0,20)})`):[],sessions:p.sessions,amount:p.price,perWeek:f.perWeek,slots:custom?[]:[...f.slots],preferredTimes:custom?f.pref.slice(0,300):"",start:f.start,coachPref:f.coachPref,
+    const b={...f.child,package:p.label,ptype:f.ptype,sessionType:TYPES[f.ptype].short,child2Name:f.ptype==="p2"?f.c2n.slice(0,60):"",child2Age:f.ptype==="p2"?f.c2a.slice(0,20):"",siblings:f.ptype==="sib"?f.sibs.slice(0,sibsNeeded()).map(x=>`${x.name.slice(0,60)} (${x.age.slice(0,20)})`):[],sessions:p.sessions,amount:p.price,perWeek:f.perWeek,slots:custom?[]:[...f.slots],preferredTimes:custom?f.pref.slice(0,300):"",reqSlots:custom?f.req.map(r=>({day:+r.day,time:r.time})):[],start:f.start,coachPref:f.coachPref,
       payer:f.payer.slice(0,80),ref:f.ref.slice(0,40),status:"pending",coachBySlot:autoAssign(f.slots,f.coachPref,f.ptype),createdAt:new Date().toISOString()};
     t.disabled=true;
-    try{const id=await createBooking(b);S.lastBooking={id,...b};S.form={step:5,child:{},pkg:null,perWeek:2,slots:[],coachPref:"any",start:"",payer:"",ref:"",mode:"custom",pref:"",ptype:"p1",c2n:"",c2a:"",sibs:[]};forceBook();scrollTo(0,0)}
+    try{const id=await createBooking(b);S.lastBooking={id,...b};S.form={step:5,child:{},pkg:null,perWeek:2,slots:[],coachPref:"any",start:"",payer:"",ref:"",mode:"custom",pref:"",req:[{day:"",time:""},{day:"",time:""}],alt:"",ptype:"p1",c2n:"",c2a:"",sibs:[]};forceBook();scrollTo(0,0)}
     catch(err){console.error(err);toast("Booking failed — please try again");t.disabled=false}
   }
   if(a==="toMine"){S.tab="mine";S.form.step=1;render()}
@@ -508,6 +513,7 @@ function card(b,admin){
     h+=`<div class="kv"><span>Parent:</span> ${esc(b.parentName)} • <a href="https://wa.me/${waNum(b.phone)}" target="_blank" rel="noopener" dir="ltr">${esc(b.phone)}</a></div>
       <div class="kv"><span>Level:</span> ${esc(b.level)} • ${b.gender==="f"?"Female":"Male"}${b.coachPref&&b.coachPref!=="any"?` • prefers ${esc(coachById(b.coachPref)?.name||"")}`:""}</div>
       ${b.ref?`<div class="kv"><span>Transfer:</span> ${esc(b.payer)} • ref <b dir="ltr">${esc(b.ref)}</b></div>`:repPay?`<div class="note" style="background:#dcf5ea;color:#0d6b43">💳 <b>Parent says they paid:</b> ${esc(repPay.payer)} • ref <b dir="ltr">${esc(repPay.ref)}</b><br>Check your bank app, then tap “Confirm payment”.</div>`:`<div class="kv"><span>Transfer:</span> not paid yet</div>`}
+      ${isActive(b)&&!(b.slots||[]).length&&(b.reqSlots||[]).length?`<div class="actions"><button class="btn ok block" data-confirmreq="${b.id}">✔ Confirm requested times: ${(b.reqSlots||[]).map(r=>`${DAYS[r.day]} ${fmtTime(r.time)}`).join(" & ")}</button></div><p class="muted" style="margin:4px 0 0">Different time agreed? Add it below instead.</p>`:""}
       ${isActive(b)&&(b.slots||[]).length<Math.min(b.perWeek||2,3)?`<div style="background:#f5fbfd;border-radius:12px;padding:10px;margin-top:8px"><b style="font-size:14px">Confirm a time (${(b.slots||[]).length}/${Math.min(b.perWeek||2,3)})</b>
         <div class="tbl-row"><select style="flex:1.2" id="cd-${b.id}">${DAYS.map((d,i)=>`<option value="${i}">${d}</option>`).join("")}</select><input type="time" style="flex:1" id="ct-${b.id}" value="17:00"><button class="btn sm" data-confirmtime="${b.id}">Add</button></div></div>`:""}
       ${b.notes?`<div class="kv"><span>Notes:</span> ${esc(b.notes)}</div>`:""}
@@ -566,6 +572,9 @@ function renderAdmin(){
 }
 $("v-admin").addEventListener("click",async e=>{
   const t=e.target.closest("button");if(!t)return;
+  if(t.dataset.confirmreq){const b=S.bookings.find(x=>x.id===t.dataset.confirmreq);if(!b)return;t.disabled=true;
+    const ids=[];for(const r of (b.reqSlots||[])){const sid="s"+r.day+String(r.time).replace(":","");ids.push(sid);if(!slotById(sid)){if(!await safe(()=>saveSlot({id:sid,day:r.day,time:r.time,active:true})))return}}
+    await safe(()=>updateBooking(b.id,{slots:ids,coachBySlot:{...(b.coachBySlot||{}),...autoAssign(ids,b.coachPref,b.ptype,b.id)}}),"Times confirmed ✔ — now send the payment link");return}
   if(t.dataset.confirmtime){const b=S.bookings.find(x=>x.id===t.dataset.confirmtime);if(!b)return;
     const day=+$("cd-"+b.id).value,time=$("ct-"+b.id).value;if(!time)return toast("Choose a time");
     const sid="s"+day+time.replace(":","");if((b.slots||[]).includes(sid))return toast("Already added");
