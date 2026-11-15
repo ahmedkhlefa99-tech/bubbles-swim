@@ -302,11 +302,11 @@ function renderBook(){
     el.innerHTML=`<div class="card intro"><h2>Learn to swim with confidence 🫧</h2>
       ${st.about?`<p class="muted" style="margin:0">${esc(st.about)}</p>`:""}
       <div class="tiles"><div class="tile"><span>👶</span>Babies</div><div class="tile"><span>🧒</span>Kids</div><div class="tile"><span>🧑</span>Adults</div></div>
-      <ul class="facts">
+      ${S.mode==="loading"||(S.mode==="live"&&!S._loaded)?`<p class="muted">Loading…</p>`:`<ul class="facts">
         <li>✅ <b>Private sessions</b> or <b>small-group sessions</b> (max 3 swimmers)</li>
         <li>✅ Coaches: <b>${st.coaches.map(c=>esc(c.name)).join(" & ")}</b></li>
         <li>✅ ${st.sessionMinutes}-minute classes, all levels</li>
-      </ul>
+      </ul>`}
       <h3 style="margin-bottom:4px">How it works</h3>
       <div class="how"><div><i>1</i>Choose a package and a time</div><div><i>2</i>Pay with InstaPay</div><div><i>3</i>Get confirmed on WhatsApp</div></div>
     </div>
