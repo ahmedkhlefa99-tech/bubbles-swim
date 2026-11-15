@@ -151,6 +151,11 @@ header.top .logo{animation:bob 3.2s ease-in-out infinite}
 @keyframes slideIn{from{transform:translateX(-18px);opacity:0}to{transform:none;opacity:1}}
 .intro h2 .bb{display:inline-block;animation:floaty 1.8s ease-in-out infinite}
 .nw{white-space:nowrap}
+details.info{background:#f5fbfd;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:10px 0}
+details.info summary{font-weight:700;cursor:pointer}details.info p{margin:8px 0 0;font-size:14px;line-height:1.55}
+.lowleft{color:#c0392b}
+.seg.att button{flex:1;font-size:13px}.seg.att button.on.p{background:#1f9d63;color:#fff}.seg.att button.on.a{background:#c0392b;color:#fff}.seg.att button.on.x{background:#e6a817;color:#fff}
+.daychips{display:flex;flex-wrap:wrap;gap:6px}.daychips .chip{padding:6px 10px;font-size:13px}
 .locs{animation:popIn .6s .2s cubic-bezier(.3,1.6,.5,1) both}
 .pop{position:fixed;z-index:50;pointer-events:none;border-radius:50%;border:1.5px solid rgba(18,140,180,.55);background:radial-gradient(circle at 32% 30%,#fff 0 12%,rgba(120,210,235,.3) 13% 60%,transparent 70%);animation:popUp .9s ease-out forwards}
 @keyframes popUp{from{transform:translate(0,0) scale(.3);opacity:1}to{transform:translate(var(--x),var(--y)) scale(1);opacity:0}}
@@ -181,8 +186,10 @@ header.top .logo{animation:bob 3.2s ease-in-out infinite}
   <section id="v-book"></section>
   <section id="v-mine" class="hide"></section>
   <section id="v-pay" class="hide"></section>
+  <section id="v-renew" class="hide"></section>
   <section id="v-login" class="hide"></section>
   <section id="v-admin" class="hide"></section>
+  <section id="v-att" class="hide"></section>
   <section id="v-sched" class="hide"></section>
   <section id="v-settings" class="hide"></section>
 </main>
@@ -256,6 +263,9 @@ const DEFAULT_SETTINGS = {
   perCoach:1, sessionMinutes:60,
   about:"Swimming lessons for every age — from baby swimming to adults. Patient, small classes that build water confidence, safety and real technique at your own pace.",
   coaches:[{id:"c1",name:"Coach Ahmed",gender:"m"},{id:"c2",name:"Assistant Coach",gender:"f"}],
+  locDays:{},
+  bring:"Swimsuit, swim cap, goggles, towel, flip-flops and a water bottle. Babies: a swim diaper.",
+  policy:"Can't make it? Tell us at least 24 hours before and we'll book a make-up session.\nA missed session without notice counts as a used session.\nIf we cancel a class (pool closure, weather or coach absence), you get a make-up session.",
   pkgVersion:6,
   packages:[
     {id:"a8",type:"p1",label:"Private · 8 sessions",sessions:8,price:2500},
@@ -270,7 +280,7 @@ const DEFAULT_SETTINGS = {
 const DEFAULT_SLOTS = [[0,"09:00"],[0,"10:00"],[0,"11:00"],[6,"09:00"],[6,"10:00"],[6,"11:00"],[1,"17:00"],[1,"18:00"],[3,"17:00"],[3,"18:00"]]
   .map(([d,t])=>({id:"s"+d+t.replace(":",""),day:d,time:t,active:true}));
 
-const S = { payments:[], payId:null, payBk:null, settings:structuredClone(DEFAULT_SETTINGS), slots:[], holds:[], bookings:[], mine:{},
+const S = { payments:[], coachlogs:[], attDate:null, renewId:null, renewBk:null, payId:null, payBk:null, settings:structuredClone(DEFAULT_SETTINGS), slots:[], holds:[], bookings:[], mine:{},
   mode:"loading", fs:null, F:null, auth:null, A:null, admin:null, tab:"book", adminFilter:"pending", schedCoach:"all",
   form:{step:1, child:{}, pkg:null, perWeek:2, slots:[], coachPref:"any", start:"", payer:"", ref:"", mode:"custom", pref:"", req:[{day:"",time:""},{day:"",time:""}], alt:"", ptype:"p1", c2n:"", c2a:"", sibs:[]}, lastBooking:null };
 
@@ -304,12 +314,18 @@ const coachFree=(cid,sid,type,except)=>{const st=cStat(cid,sid,except);return ty
 const pkgOf=id=>S.settings.packages.find(p=>p.id===id)||S.settings.packages[0];
 function todayISO(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)}
 function fmtDate(d){return d.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"})}
+const usedOf=b=>Object.values(b.att||{}).filter(v=>v==="p"||v==="a").length;
+const leftOf=b=>Math.max(0,(Number(b.sessions)||0)-usedOf(b));
+const exOf=b=>Object.values(b.att||{}).filter(v=>v==="x").length;
+function isoOf(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
+const nl2br=t=>esc(t).replace(/\n/g,"<br>");
+const allowedDays=loc=>{const a=(S.settings.locDays||{})[loc];return a&&a.length?a:[0,1,2,3,4,5,6]};
 function sessionDates(b){
   if(!b.start)return[];
   const days=(b.slots||[]).map(slotById).filter(Boolean).map(s=>({js:(s.day+6)%7,id:s.id}));
   if(!days.length)return[];
   const out=[],d=new Date(b.start+"T12:00:00");let g=0;
-  while(out.length<b.sessions&&g<500){for(const h of days.filter(x=>x.js===d.getDay()))if(out.length<b.sessions)out.push({date:new Date(d),slot:h.id});d.setDate(d.getDate()+1);g++}
+  const n=(Number(b.sessions)||0)+exOf(b);while(out.length<n&&g<500){for(const h of days.filter(x=>x.js===d.getDay()))if(out.length<n)out.push({date:new Date(d),slot:h.id});d.setDate(d.getDate()+1);g++}
   return out;
 }
 function autoAssign(slots,pref,type,except){const o={},g=type==="group";for(const s of slots){
@@ -331,18 +347,18 @@ async function init(){
     F.onSnapshot(F.collection(S.fs,"slots"),q=>{S.slots=q.docs.map(d=>({id:d.id,...d.data()}));render()},e=>console.warn(e));
     F.onSnapshot(F.collection(S.fs,"holds"),q=>{S.holds=q.docs.map(d=>({id:d.id,...d.data()}));render()},e=>console.warn(e));
     for(const id of myIds())watchMine(id);
-    openPay();
+    openPay();openRenew();
     A.onAuthStateChanged(S.auth,u=>{S.admin=u||null;
       if(S._unBk){S._unBk();S._unBk=null}
-      if(u){S._unBk=F.onSnapshot(F.collection(S.fs,"bookings"),q=>{const all=q.docs.map(d=>({id:d.id,...d.data()}));S.bookings=all.filter(x=>x.kind!=="payment");S.payments=all.filter(x=>x.kind==="payment");render()},e=>{toast("This account is not an admin");});
+      if(u){S._unBk=F.onSnapshot(F.collection(S.fs,"bookings"),q=>{const all=q.docs.map(d=>({id:d.id,...d.data()}));S.bookings=all.filter(x=>!x.kind);S.payments=all.filter(x=>x.kind==="payment");S.coachlogs=all.filter(x=>x.kind==="coachlog");render()},e=>{toast("This account is not an admin");});
         if(S.tab==="login")S.tab="admin"}
-      else{S.bookings=[];if(["admin","sched","settings"].includes(S.tab))S.tab="login"}
+      else{S.bookings=[];if(["admin","att","sched","settings"].includes(S.tab))S.tab="login"}
       render()});
   }catch(e){console.error(e);startDemo();toast("Can't reach the database")}
   render();
 }
 function watchMine(id){S.F.onSnapshot(S.F.doc(S.fs,"bookings",id),s=>{if(s.exists()){S.mine[id]={id,...s.data()};render()}},()=>{})}
-function startDemo(){S.mode="demo";S.slots=structuredClone(DEFAULT_SLOTS);S.admin={email:"demo"};render();openPay()}
+function startDemo(){S.mode="demo";S.slots=structuredClone(DEFAULT_SLOTS);S.admin={email:"demo"};render();openPay();openRenew()}
 
 async function createBooking(b){
   const hold={slots:b.slots,status:"pending",coachBySlot:b.coachBySlot};
@@ -360,6 +376,12 @@ async function deleteBooking(id){
   if(S.mode==="demo"){S.bookings=S.bookings.filter(x=>x.id!==id);S.holds=S.holds.filter(x=>x.id!==id);render();return}
   const F=S.F,batch=F.writeBatch(S.fs);batch.delete(F.doc(S.fs,"bookings",id));batch.delete(F.doc(S.fs,"holds",id));await batch.commit();
 }
+async function saveCoachLog(month,log){
+  const ex=S.coachlogs.find(x=>x.month===month);
+  if(S.mode==="demo"){if(ex)ex.log=log;else S.coachlogs.push({id:rid(),kind:"coachlog",month,log});render();return}
+  const F=S.F;if(ex){await F.updateDoc(F.doc(S.fs,"bookings",ex.id),{log});return}
+  await F.setDoc(F.doc(F.collection(S.fs,"bookings")),{kind:"coachlog",month,log,status:"pending",childName:"-",parentName:"-",phone:"-",slots:[],createdAt:new Date().toISOString()});
+}
 async function saveSettings(st){if(S.mode==="demo"){S.settings=st;render();return}await S.F.setDoc(S.F.doc(S.fs,"settings","main"),st)}
 async function saveSlot(s){const {id,...d}=s;if(S.mode==="demo"){const i=S.slots.findIndex(x=>x.id===id);i>=0?S.slots[i]=s:S.slots.push(s);render();return}await S.F.setDoc(S.F.doc(S.fs,"slots",id),d)}
 async function deleteSlot(id){if(S.mode==="demo"){S.slots=S.slots.filter(x=>x.id!==id);render();return}await S.F.deleteDoc(S.F.doc(S.fs,"slots",id))}
@@ -372,6 +394,7 @@ const ICONS={
   admin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
   sched:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
   settings:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>',
+  att:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 9l2 2 4-4M8 16h8"/></svg>',
   login:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>'
 };
 function wantsAdmin(){return location.hash==="#admin"}
@@ -379,7 +402,11 @@ const payHash=()=>{const m=location.hash.match(/^#pay-([A-Za-z0-9]{6,40})$/);ret
 function openPay(){const id=payHash();if(!id)return;S.tab="pay";if(S.payId===id)return render();S.payId=id;S.payBk=null;S.paySent=(()=>{try{return !!localStorage.getItem("bubbles_paid_"+id)}catch(e){return false}})();
   if(S.mode==="live"){S.F.onSnapshot(S.F.doc(S.fs,"bookings",id),d=>{S.payBk=d.exists()?{id,...d.data()}:{missing:true};render()},()=>{S.payBk={missing:true};render()})}
   else{S.payBk=S.bookings.find(b=>b.id===id)||{missing:true}}render()}
-window.addEventListener("hashchange",()=>{if(payHash())return openPay();if(wantsAdmin()){S.tab=S.admin?"admin":"login";render()}});
+const renewHash=()=>{const m=location.hash.match(/^#renew-([A-Za-z0-9]{6,40})$/);return m?m[1]:null};
+function openRenew(){const id=renewHash();if(!id)return;S.tab="renew";if(S.renewId===id)return render();S.renewId=id;S.renewBk=null;
+  if(S.mode==="live"){S.F.onSnapshot(S.F.doc(S.fs,"bookings",id),d=>{S.renewBk=d.exists()?{id,...d.data()}:{missing:true};render()},()=>{S.renewBk={missing:true};render()})}
+  else{S.renewBk=S.bookings.find(b=>b.id===id)||{missing:true}}render()}
+window.addEventListener("hashchange",()=>{if(payHash())return openPay();if(renewHash())return openRenew();if(wantsAdmin()){S.tab=S.admin?"admin":"login";render()}});
 function render(){
   const st=S.settings;
   $("appName").textContent=st.name||"Bubbles Swim Academy";$("appLoc").textContent=st.location||"Swimming for every age";
@@ -387,13 +414,13 @@ function render(){
   const ig=$("igLink");const h=(st.instagram||"").replace(/^@/,"").replace(/^https?:\/\/(www\.)?instagram\.com\//,"").replace(/\/.*$/,"");
   if(h){ig.href="https://instagram.com/"+encodeURIComponent(h);ig.classList.remove("hide")}else ig.classList.add("hide");
   const tabs=[["book","Book"],["mine","My bookings"]];
-  if(S.admin)tabs.push(["admin","Bookings"],["sched","Schedule"],["settings","Settings"]);
+  if(S.admin)tabs.push(["admin","Bookings"],["att","Attendance"],["sched","Schedule"],["settings","Settings"]);
   else if(wantsAdmin()||S.tab==="login")tabs.push(["login","Coach login"]);
   if(S.tab==="book"&&wantsAdmin()&&!S._hashed){S._hashed=1;S.tab=S.admin?"admin":"login"}
-  if(!tabs.find(t=>t[0]===S.tab)&&S.tab!=="pay")S.tab="book";
+  if(!tabs.find(t=>t[0]===S.tab)&&S.tab!=="pay"&&S.tab!=="renew")S.tab="book";
   $("tabs").innerHTML=tabs.map(([k,l])=>`<button class="tab ${S.tab===k?"on":""}" data-tab="${k}">${ICONS[k]}${l}</button>`).join("");
-  for(const k of ["book","mine","pay","login","admin","sched","settings"])$("v-"+k).classList.toggle("hide",S.tab!==k);
-  ({book:renderBook,mine:renderMine,pay:renderPay,login:renderLogin,admin:renderAdmin,sched:renderSched,settings:renderSettings})[S.tab]();
+  for(const k of ["book","mine","pay","renew","login","admin","att","sched","settings"])$("v-"+k).classList.toggle("hide",S.tab!==k);
+  ({book:renderBook,mine:renderMine,pay:renderPay,renew:renderRenew,login:renderLogin,admin:renderAdmin,att:renderAtt,sched:renderSched,settings:renderSettings})[S.tab]();
 }
 $("tabs").addEventListener("click",e=>{const b=e.target.closest("[data-tab]");if(b){S.tab=b.dataset.tab;render();scrollTo(0,0)}});
 
@@ -424,6 +451,8 @@ function renderBook(){
         <li>✅ <b>Baby swimming</b> — 30-minute sessions</li>
         <li>✅ ${st.sessionMinutes}-minute sessions, all levels</li>
       </ul>`}
+      <details class="info"><summary>🎒 What to bring</summary><p>${esc(st.bring)}</p></details>
+      <details class="info"><summary>📋 Absence & make-up policy</summary><p>${nl2br(st.policy)}</p></details>
       <h3 style="margin-bottom:4px">How it works</h3>
       <div class="how"><div><i>1</i>Choose a package and the times that suit you</div><div><i>2</i>The coach confirms your time on WhatsApp</div><div><i>3</i>Pay with InstaPay and start swimming</div></div>
     </div>
@@ -462,7 +491,8 @@ function renderBook(){
     f.mode="custom";
     el.innerHTML=`<div class="card">${steps}<h2>3. Your preferred times</h2>
       ${f.mode==="custom"?`<p class="muted">Write the days and times that suit you — <b>${f.perWeek} times a week</b>, ${(f.pkg&&pkgOf(f.pkg).minutes)||st.sessionMinutes}-minute sessions. The coach will confirm your time on WhatsApp.</p>
-      ${[0,1].map(i=>`<div class="row"><div><label>${i?"Second":"First"} day</label><select id="f-rd${i}"><option value="">— Day —</option>${DAYS.map((d,k)=>`<option value="${k}" ${String(f.req[i].day)===String(k)?"selected":""}>${d}</option>`).join("")}</select></div><div><label>Time</label><input id="f-rt${i}" type="time" value="${esc(f.req[i].time)}"></div></div>`).join("")}
+      ${(()=>{const ad=allowedDays(f.child.location);return ad.length<7?`<div class="note">📍 Classes in <b>${esc(f.child.location)}</b>: ${ad.map(k=>DAYS[k]).join(", ")}</div>`:""})()}
+      ${[0,1].map(i=>`<div class="row"><div><label>${i?"Second":"First"} day</label><select id="f-rd${i}"><option value="">— Day —</option>${allowedDays(f.child.location).map(k=>`<option value="${k}" ${String(f.req[i].day)===String(k)?"selected":""}>${DAYS[k]}</option>`).join("")}</select></div><div><label>Time</label><input id="f-rt${i}" type="time" value="${esc(f.req[i].time)}"></div></div>`).join("")}
       <label>Other times that also work <span class="muted">(optional)</span></label><textarea id="f-alt" rows="2" placeholder="e.g. any weekday after 5 PM">${esc(f.alt)}</textarea>`:`<p class="muted">Pick <b>${need}</b> weekly ${need===1?"slot":"slots"} (${(f.pkg&&pkgOf(f.pkg).minutes)||st.sessionMinutes}-minute sessions). Your slot repeats every week until the package ends. No slot fits? Tap “Suggest my own time”.</p>
       ${Object.keys(byDay).length?Object.keys(byDay).map(d=>`<div class="day">${DAYS[d]}</div><div class="chips">${byDay[d].map(s=>{
         const left=spotsFor(f.ptype,s.id),on=f.slots.includes(s.id),full=left<=0&&!on,prefOk=f.coachPref==="any"||coachFree(f.coachPref,s.id,f.ptype),gf=f.ptype==="group"?groupFill(s.id):0;
@@ -482,6 +512,7 @@ function renderBook(){
       <div class="sum"><span>Last class</span><b>${dates.length?fmtDate(dates.at(-1).date):"-"}</b></div>`}
       <div class="sum"><span>Total</span><span class="total">${money(p.price)}<small style="font-size:13px;font-weight:600">${TYPES[typeOfPkg(p)].note}</small></span></div>
       <label>Notes (optional)</label><textarea id="f-notes2" rows="2" placeholder="e.g. health notes, anything we should know">${esc(f.child.notes||"")}</textarea>
+      <details class="info"><summary>📋 Absence & make-up policy</summary><p>${nl2br(st.policy)}</p></details>
       ${custom?`<div class="note">The coach will message you on WhatsApp to confirm your time. Then you'll get a link to pay with InstaPay.</div>`:`<div class="pay"><b>Pay with InstaPay 💳</b>
         ${st.ipa?`<div class="ipa"><span>${esc(st.ipa)}</span><button class="btn sm ghost" data-act="copyIpa">Copy</button></div>`:`<p class="muted">The payment address will appear here once the coach adds it.</p>`}
         ${st.payLink?`<a class="btn sun block" href="${esc(cleanLink(st.payLink))}" target="_blank" rel="noopener">Open InstaPay and pay ${money(p.price)}</a>`:""}
@@ -556,9 +587,12 @@ function bookingMsg(b){
   return L.join("\n");
 }
 function waMsg(b){const lines=(b.slots||[]).map(s=>slotLabel(s)).join("\n"),d=sessionDates(b);
-  return b.status==="paid"?`Hi ${b.parentName}\n${b.childName}'s booking at ${S.settings.name} (${b.package}) is confirmed\nSchedule:\n${lines}\nFirst class: ${d[0]?fmtDate(d[0].date):""}${b.location||S.settings.location?"\nLocation: "+(b.location||S.settings.location):""}`
+  return b.status==="paid"?`Hi ${b.parentName}\n${b.childName}'s booking at ${S.settings.name} (${b.package}) is confirmed\nSchedule:\n${lines}\nFirst class: ${d[0]?fmtDate(d[0].date):""}${b.location||S.settings.location?"\nLocation: "+(b.location||S.settings.location):""}${S.settings.bring?"\n\nPlease bring: "+S.settings.bring:""}`
     :(b.slots||[]).length&&!b.ref?`Hi ${b.parentName}\n${b.childName}'s time at ${S.settings.name} is confirmed\nSchedule:\n${lines}\nFirst class: ${d[0]?fmtDate(d[0].date):""}\n\nPlease pay ${b.amount} EGP here:\n${payLinkFor(b)}`
     :`Hi ${b.parentName}\nAbout ${b.childName}'s booking (${b.package}) for ${b.amount} EGP`}
+function reminderMsg(b,nx){const st=S.settings;return `Hi ${b.parentName}\nReminder: ${b.childName}'s swim class is on ${fmtDate(nx.date)} at ${fmtTime(slotById(nx.slot)?.time)}${b.location?" in "+b.location:""}.\n${st.bring?"Please bring: "+st.bring+"\n":""}Sessions left: ${leftOf(b)} of ${b.sessions}\nSee you in the pool!\n${st.name}`}
+const renewLinkFor=b=>`https://${location.host}/#renew-${b.id}`;
+function renewMsg(b){return `Hi ${b.parentName}\n${b.childName} has ${leftOf(b)} session${leftOf(b)===1?"":"s"} left in the current package at ${S.settings.name}.\nTo renew with the same days and times, tap here and pay:\n${renewLinkFor(b)}`}
 const cleanLink=t=>((t||"").match(/https?:\/\/\S+/)||[""])[0];
 const payLinkFor=b=>`https://${location.host}/#pay-${b.id}`;
 // shrink a screenshot so it fits comfortably in one database document (well under 1 MB)
@@ -610,9 +644,11 @@ function card(b,admin){
     <div class="kv"><span>Times:</span> ${(b.slots||[]).length?"":"to be arranged"}${(b.slots||[]).map(s=>`${slotLabel(s)} (${esc(coachById(cOf((b.coachBySlot||{})[s]))?.name||"coach not assigned yet")})`).join(" • ")}</div>
     <div class="kv"><span>From</span> ${dates[0]?fmtDate(dates[0].date):"-"} <span>to</span> ${dates.length?fmtDate(dates.at(-1).date):"-"}</div>
     ${!admin&&b.status==="pending"&&!b.ref&&(b.slots||[]).length?`<a class="btn ok block" style="margin:8px 0" href="#pay-${b.id}">💳 Pay now</a>`:""}
+    ${b.status==="paid"||b.status==="done"?`<div class="kv"><span>Sessions:</span> <b class="${leftOf(b)<=2?"lowleft":""}">${usedOf(b)} of ${b.sessions} used • ${leftOf(b)} left</b>${exOf(b)?` <span class="muted">(${exOf(b)} make-up)</span>`:""}</div>`:""}
+    ${!admin&&(b.status==="paid"||b.status==="done")&&leftOf(b)<=2?`<a class="btn sun block" style="margin:8px 0" href="#renew-${b.id}">🔁 Renew — same days & times</a>`:""}
     ${next&&isActive(b)?`<div class="kv"><span>Next class:</span> <b>${fmtDate(next.date)} ${fmtTime(slotById(next.slot)?.time)}</b></div>`:""}`;
   if(admin){
-    h+=`<div class="kv"><span>Parent:</span> ${esc(b.parentName)} • <a href="https://wa.me/${waNum(b.phone)}" target="_blank" rel="noopener" dir="ltr">${esc(b.phone)}</a></div>
+    h+=`${b.renewOf?`<div class="kv"><b>🔁 Renewal</b> <span class="muted">— same times as the previous package</span></div>`:""}<div class="kv"><span>Parent:</span> ${esc(b.parentName)} • <a href="https://wa.me/${waNum(b.phone)}" target="_blank" rel="noopener" dir="ltr">${esc(b.phone)}</a></div>
       <div class="kv"><span>Level:</span> ${esc(b.level)} • ${b.gender==="f"?"Female":"Male"}${b.coachPref&&b.coachPref!=="any"?` • prefers ${esc(coachById(b.coachPref)?.name||"")}`:""}</div>
       ${b.ref?`<div class="kv"><span>Transfer:</span> ${esc(b.payer)}${b.receipt?"":` • ref <b dir="ltr">${esc(b.ref)}</b>`}</div>${b.receipt?`<img src="${b.receipt}" alt="Transfer screenshot" class="rcpt">`:""}`:repPay?`<div class="note" style="background:#dcf5ea;color:#0d6b43">💳 <b>Parent says they paid:</b> ${esc(repPay.payer)}${repPay.receipt?"":` • ref <b dir="ltr">${esc(repPay.ref)}</b>`}<br>Check your bank app, then tap “Confirm payment received”.${repPay.receipt?`<br><img src="${repPay.receipt}" alt="Transfer screenshot" class="rcpt">`:""}</div>`:`<div class="kv"><span>Transfer:</span> not paid yet</div>`}
       ${isActive(b)&&!(b.slots||[]).length&&(b.reqSlots||[]).length?`<div class="actions"><button class="btn ok block" data-confirmreq="${b.id}">✔ Confirm requested times: ${(b.reqSlots||[]).map(r=>`${DAYS[r.day]} ${fmtTime(r.time)}`).join(" & ")}</button></div><p class="muted" style="margin:4px 0 0">Different time agreed? Add it below instead.</p>`:""}
@@ -624,6 +660,8 @@ function card(b,admin){
         ${b.status==="pending"&&!b.ref&&!repPay&&(b.slots||[]).length?`<a class="btn sm ok" href="https://wa.me/${waNum(b.phone)}?text=${encodeURIComponent(waMsg(b))}" target="_blank" rel="noopener">📲 Send time & payment link</a>`:""}
         ${b.status==="pending"&&(b.ref||repPay)?`<button class="btn sm ok" data-st="paid" data-id="${b.id}">✔ Confirm payment received</button>`:""}
         ${b.status==="pending"&&!b.ref&&!repPay&&(b.slots||[]).length?`<button class="btn sm ghost" data-st="paid" data-id="${b.id}">Mark as paid (cash/other)</button>`:""}
+        ${b.status==="paid"&&next?`<a class="btn sm ghost" href="https://wa.me/${waNum(b.phone)}?text=${encodeURIComponent(reminderMsg(b,next))}" target="_blank" rel="noopener">⏰ Reminder</a>`:""}
+        ${(b.status==="paid"||b.status==="done")&&leftOf(b)<=2?`<a class="btn sm sun" href="https://wa.me/${waNum(b.phone)}?text=${encodeURIComponent(renewMsg(b))}" target="_blank" rel="noopener">🔁 Send renewal link</a>`:""}
         ${b.status==="paid"?`<button class="btn sm ghost" data-st="done" data-id="${b.id}">Package finished</button>`:""}
         ${isActive(b)?`<button class="btn sm bad" data-st="cancelled" data-id="${b.id}">Cancel</button>`:`<button class="btn sm ghost" data-st="pending" data-id="${b.id}">Restore</button><button class="btn sm bad" data-del="${b.id}">Delete forever</button>`}
         ${b.status==="pending"&&!b.ref&&!repPay&&(b.slots||[]).length?"":`<a class="btn sm ghost" href="https://wa.me/${waNum(b.phone)}?text=${encodeURIComponent(waMsg(b))}" target="_blank" rel="noopener">WhatsApp message</a>`}
@@ -631,6 +669,65 @@ function card(b,admin){
   }
   return h+"</div>";
 }
+function renewPrice(b){const p=S.settings.packages.find(x=>x.label===b.package);return p?p.price:b.amount}
+function renewStart(b){const d=sessionDates(b),t=todayISO();if(!d.length)return t;const n=new Date(d.at(-1).date);n.setDate(n.getDate()+1);const iso=isoOf(n);return iso>t?iso:t}
+function renderRenew(){
+  const el=$("v-renew"),b=S.renewBk;
+  if(!b){el.innerHTML=`<div class="card"><p class="muted">Loading…</p></div>`;return}
+  if(b.missing||b.kind){el.innerHTML=`<div class="card"><h2>Booking not found</h2><p class="muted">Please check the link, or message the coach on WhatsApp.</p></div>`;return}
+  const done=(()=>{try{return localStorage.getItem("bubbles_renew_"+b.id)}catch(e){return null}})();
+  if(done){el.innerHTML=`<div class="card done-box"><div class="big">🔁</div><h2>Already renewed</h2><p class="muted">You've already renewed this package.</p><a class="btn ok block" href="#pay-${esc(done)}">Go to payment</a></div>`;return}
+  if(b.status==="cancelled"||!(b.slots||[]).length){el.innerHTML=`<div class="card"><h2>Let's talk 👋</h2><p class="muted">This booking can't be renewed online. Please message the coach on WhatsApp.</p></div>`;return}
+  const start=renewStart(b),nb={...b,start,att:{}},d=sessionDates(nb);
+  el.innerHTML=`<div class="card"><h2>Renew ${esc(b.childName)}'s package 🔁</h2><p class="muted">Same days, same times — just pay and keep swimming.</p>
+    <div class="sum"><span>Swimmer</span><b>${esc(b.childName)}</b></div>
+    <div class="sum"><span>Package</span><b>${esc(b.package)}</b></div>
+    ${b.location?`<div class="sum"><span>Location</span><b>${esc(b.location)}</b></div>`:""}
+    <div class="sum"><span>Times</span><b>${(b.slots||[]).map(slotLabel).join(", ")}</b></div>
+    <div class="sum"><span>First class</span><b>${d[0]?fmtDate(d[0].date):"-"}</b></div>
+    <div class="sum"><span>Amount</span><span class="total">${money(renewPrice(b))}</span></div>
+    <div class="actions"><button class="btn ok block" data-act="doRenew">🔁 Renew & go to payment</button></div>
+    <p class="muted" style="font-size:13px">Need different times? Message the coach on WhatsApp instead.</p></div>`;
+}
+$("v-renew").addEventListener("click",async e=>{const t=e.target.closest("[data-act=doRenew]");if(!t)return;const b=S.renewBk;if(!b||b.missing)return;
+  const keep=["childName","age","gender","level","parentName","phone","location","notes","package","ptype","sessionType","child2Name","child2Age","siblings","sessions","perWeek","slots","reqSlots","coachBySlot","coachPref"],nb={};
+  for(const k of keep)if(b[k]!==undefined)nb[k]=b[k];
+  Object.assign(nb,{amount:renewPrice(b),preferredTimes:"Renewal — same times",start:renewStart(b),status:"pending",renewOf:b.id,payer:"",ref:"",createdAt:new Date().toISOString()});
+  t.disabled=true;t.textContent="Renewing…";
+  try{const id=await createBooking(nb);try{localStorage.setItem("bubbles_renew_"+b.id,id)}catch(_){}location.hash="#pay-"+id}
+  catch(err){console.error(err);toast("Couldn't renew — please try again");t.disabled=false;t.textContent="🔁 Renew & go to payment"}});
+
+/* ---------- admin: attendance ---------- */
+function renderAtt(){
+  const el=$("v-att");
+  const day=S.attDate||todayISO(),month=day.slice(0,7),log=(S.coachlogs.find(x=>x.month===month)||{}).log||{},today=log[day]||{};
+  const rows=[];for(const b of S.bookings){if(b.status!=="paid"&&b.status!=="done")continue;for(const x of sessionDates(b))if(isoOf(x.date)===day)rows.push({b,slot:x.slot})}
+  rows.sort((a,c)=>String(slotById(a.slot)?.time).localeCompare(String(slotById(c.slot)?.time)));
+  const lbl={p:"✓ Present",a:"✗ Absent",x:"↺ Excused"},dt=new Date(day+"T12:00:00");
+  const coachMonth=c=>{let p=0,a=0;for(const k in log){if(log[k][c]==="p")p++;else if(log[k][c]==="a")a++}return {p,a}};
+  el.innerHTML=`<div class="card"><h2>Attendance</h2>
+    <div class="tbl-row"><button class="btn sm ghost" data-atd="-1">◀</button><input type="date" id="at-date" value="${day}" style="flex:1"><button class="btn sm ghost" data-atd="1">▶</button></div>
+    <p class="muted" style="margin:4px 0 0">${dt.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})}${day===todayISO()?" • Today":""}</p></div>
+    <div class="card"><h2>Swimmers <span class="muted" style="font-size:15px">(${rows.length})</span></h2>
+    ${rows.length?rows.map(({b,slot})=>{const v=(b.att||{})[day],c=coachById(cOf((b.coachBySlot||{})[slot]));
+      return `<div class="bk att-row"><div class="hd"><b>${esc(b.childName)}${b.child2Name?" & "+esc(b.child2Name):""}${(b.siblings||[]).length?` <span class="muted">+${b.siblings.length}</span>`:""}</b><span class="muted">${fmtTime(slotById(slot)?.time)}</span></div>
+        <div class="kv">${esc(b.package)}${b.location?` • 📍 ${esc(b.location)}`:""} • ${esc(c?.name||"no coach")} • <b class="${leftOf(b)<=2?"lowleft":""}">${leftOf(b)} left</b></div>
+        <div class="seg att">${["p","a","x"].map(k=>`<button class="${v===k?"on "+k:""}" data-att="${b.id}" data-v="${k}">${lbl[k]}</button>`).join("")}</div>
+        ${leftOf(b)<=2?`<a class="btn sm sun" href="https://wa.me/${waNum(b.phone)}?text=${encodeURIComponent(renewMsg(b))}" target="_blank" rel="noopener">🔁 Send renewal link</a>`:""}
+        ${day>=todayISO()?`<a class="btn sm ghost" href="https://wa.me/${waNum(b.phone)}?text=${encodeURIComponent(reminderMsg(b,{date:dt,slot}))}" target="_blank" rel="noopener">⏰ Reminder</a>`:""}</div>`}).join(""):`<div class="empty">No classes on this day.</div>`}
+    <p class="muted" style="font-size:13px">✓ and ✗ use up a session. ↺ Excused (parent told you in time) adds a make-up session at the end of the package.</p></div>
+    <div class="card"><h2>Coaches</h2>
+    ${S.settings.coaches.map(c=>{const v=today[c.id],m=coachMonth(c.id);return `<div class="bk"><div class="hd"><b>${esc(c.name)}</b><span class="muted">${new Date(day+"T12:00:00").toLocaleDateString("en-GB",{month:"short"})}: ${m.p} present • ${m.a} absent</span></div>
+      <div class="seg att">${["p","a"].map(k=>`<button class="${v===k?"on "+k:""}" data-catt="${c.id}" data-v="${k}">${lbl[k]}</button>`).join("")}</div></div>`}).join("")}</div>`;
+}
+$("v-att").addEventListener("change",e=>{if(e.target.id==="at-date"&&e.target.value){S.attDate=e.target.value;e.target.blur();renderAtt()}});
+$("v-att").addEventListener("click",async e=>{const t=e.target.closest("button");if(!t)return;const day=S.attDate||todayISO();
+  if(t.dataset.atd){const d=new Date(day+"T12:00:00");d.setDate(d.getDate()+Number(t.dataset.atd));S.attDate=isoOf(d);return renderAtt()}
+  if(t.dataset.att){const b=S.bookings.find(x=>x.id===t.dataset.att);if(!b)return;const att={...(b.att||{})};if(att[day]===t.dataset.v)delete att[day];else att[day]=t.dataset.v;
+    t.disabled=true;const ok=await safe(()=>updateBooking(b.id,{att}));if(ok&&leftOf({...b,att})===0&&t.dataset.v!=="x")toast(`${b.childName}'s package is used up — send a renewal link 🔁`);if(S.mode==="demo")renderAtt();return}
+  if(t.dataset.catt){const month=day.slice(0,7),ex=S.coachlogs.find(x=>x.month===month),log=structuredClone((ex||{}).log||{}),d={...(log[day]||{})};
+    if(d[t.dataset.catt]===t.dataset.v)delete d[t.dataset.catt];else d[t.dataset.catt]=t.dataset.v;log[day]=d;t.disabled=true;await safe(()=>saveCoachLog(month,log));if(S.mode==="demo")renderAtt()}});
+
 function renderMine(){
   const list=Object.values(S.mine).sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||""));
   $("v-mine").innerHTML=`<div class="card"><h2>My bookings</h2>${list.length?list.map(b=>card(b,false)).join(""):`<div class="empty">No bookings on this device yet. Start from “Book” 🫧</div>`}
@@ -690,10 +787,12 @@ $("v-admin").addEventListener("click",async e=>{
     const reps=S.payments.filter(x=>x.bookingId===b.id);
     if(st==="paid"){upd.paidAt=new Date().toISOString();if(!b.ref&&reps.length){upd.payer=reps.at(-1).payer;upd.ref=reps.at(-1).ref;if(reps.at(-1).receipt)upd.receipt=reps.at(-1).receipt}const miss=(b.slots||[]).filter(s=>!cOf((b.coachBySlot||{})[s]));if(miss.length)upd.coachBySlot={...(b.coachBySlot||{}),...autoAssign(miss,b.coachPref,b.ptype,b.id)}}
     t.disabled=true;const ok=await safe(()=>updateBooking(b.id,upd),st==="paid"?"Confirmed ✔ — send the parent a WhatsApp message":"Updated");
+    if(ok&&st==="paid"&&b.renewOf){const old=S.bookings.find(x=>x.id===b.renewOf);if(old&&old.status==="paid")await safe(()=>updateBooking(old.id,{status:"done"}))}
     if(ok&&st==="paid")for(const r of reps){if(S.mode==="demo")S.payments=S.payments.filter(x=>x.id!==r.id);else{try{await S.F.deleteDoc(S.F.doc(S.fs,"bookings",r.id))}catch(_){}}}
     if(S.mode==="demo")render();return}
   if(t.dataset.del){if(t.dataset.sure)await safe(()=>deleteBooking(t.dataset.del),"Deleted");else{t.dataset.sure="1";t.textContent="Sure? Tap again"}}
 });
+$("v-settings").addEventListener("click",e=>{const t=e.target.closest("[data-ld]");if(t)t.classList.toggle("on")});
 $("v-settings").addEventListener("change",e=>{if(e.target.id!=="st-pksel")return;S.pkSel=e.target.value;document.querySelectorAll("#st-pkgs [data-p]").forEach(r=>r.style.display=r.dataset.p===S.pkSel?"":"none")});
 $("v-settings").addEventListener("input",e=>{const r=e.target.closest("#st-pkgs [data-p]");if(!r)return;const o=$("st-pksel")?.querySelector(`option[value="${r.dataset.p}"]`);if(o)o.textContent=`${r.querySelector("[data-k=label]").value.trim()||"New package"} — ${+r.querySelector("[data-k=price]").value||0} EGP`});
 $("v-admin").addEventListener("change",async e=>{
@@ -728,6 +827,11 @@ function renderSettings(){
       <label>About the academy (shown to parents)</label><textarea id="st-about" rows="3">${esc(st.about)}</textarea>
       <div class="row"><div><label>Class length (minutes)</label><input id="st-min" type="number" value="${esc(st.sessionMinutes)}"></div>
       <div><label>Swimmers per coach per slot</label><input id="st-per" type="number" min="1" max="6" value="${esc(st.perCoach)}"></div></div></div>
+    <div class="card"><h2>Locations & class days</h2><p class="muted">Tap the days each location has classes. Parents can only pick these days. None selected = every day.</p>
+      ${LOCATIONS.map(l=>{const a=(st.locDays||{})[l]||[];return `<label>${esc(l)}</label><div class="chips daychips" data-loc="${esc(l)}">${DAYS.map((d,k)=>`<button type="button" class="chip ${a.includes(k)?"on":""}" data-ld="${k}">${d.slice(0,3)}</button>`).join("")}</div>`}).join("")}</div>
+    <div class="card"><h2>Info for parents</h2>
+      <label>What to bring</label><textarea id="st-bring" rows="2">${esc(st.bring)}</textarea>
+      <label>Absence & make-up policy (one rule per line)</label><textarea id="st-policy" rows="4">${esc(st.policy)}</textarea></div>
     <div class="card"><h2>Payment (InstaPay)</h2>
       <label>InstaPay address (IPA)</label><input id="st-ipa" dir="ltr" placeholder="name@instapay" value="${esc(st.ipa)}">
       <label>InstaPay payment link (optional)</label><input id="st-link" dir="ltr" placeholder="https://ipn.eg/S/..." value="${esc(st.payLink)}"></div>
@@ -756,6 +860,8 @@ function readSettings(){const st=structuredClone(S.settings),v=id=>$(id).value.t
   Object.assign(st,{name:v("st-name"),location:v("st-loc"),phone:v("st-phone"),instagram:v("st-ig"),about:v("st-about"),ipa:v("st-ipa"),payLink:cleanLink(v("st-link")),sessionMinutes:+v("st-min")||45,perCoach:Math.max(1,+v("st-per")||1)});
   st.coaches=[...document.querySelectorAll("#st-coaches [data-c]")].map(r=>({id:r.dataset.c,name:r.querySelector("[data-k=name]").value.trim()||"Coach",gender:r.querySelector("[data-k=gender]").value}));
   st.packages=[...document.querySelectorAll("#st-pkgs [data-p]")].map(r=>({id:r.dataset.p,type:r.querySelector("[data-k=type]").value,count:Math.max(0,+r.querySelector("[data-k=count]").value||0),minutes:Math.max(0,+r.querySelector("[data-k=minutes]").value||0),label:r.querySelector("[data-k=label]").value.trim()||"Package",sessions:Math.max(1,+r.querySelector("[data-k=sessions]").value||1),price:Math.max(0,+r.querySelector("[data-k=price]").value||0)}));
+  st.locDays={};document.querySelectorAll("#v-settings .daychips").forEach(r=>{st.locDays[r.dataset.loc]=[...r.querySelectorAll(".chip.on")].map(x=>+x.dataset.ld)});
+  st.bring=v("st-bring");st.policy=v("st-policy");
   st.pkgVersion=6;return st}
 function reSettings(){document.activeElement?.blur?.();renderSettings()}
 $("v-settings").addEventListener("click",async e=>{
