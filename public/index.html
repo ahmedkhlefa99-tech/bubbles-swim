@@ -115,6 +115,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--aqua);bo
 .step-note{background:#fff8e6;border:1.5px dashed #f1d38a;border-radius:14px;padding:12px;margin:12px 0;font-size:15px}
 .hero .t{flex:1}
 .hero h2{margin:0}
+.locs{background:#e8f6fb;border-radius:12px;padding:10px 12px;margin:12px 0 4px;font-size:15px;text-align:center}
 </style>
 </head>
 <body>
@@ -329,6 +330,7 @@ function renderBook(){
     el.innerHTML=`<div class="card intro"><h2>Learn to swim with confidence 🫧</h2>
       ${st.about?`<p class="muted" style="margin:0">${esc(st.about)}</p>`:""}
       <div class="tiles"><div class="tile"><span>👶</span>Babies</div><div class="tile"><span>🧒</span>Kids</div><div class="tile"><span>🧑</span>Adults</div></div>
+      <div class="locs">📍 We teach in <b>Rehab</b> · <b>El Shorouk</b> · <b>New Cairo</b></div>
       ${S.mode==="loading"||(S.mode==="live"&&!S._loaded)?`<p class="muted">Loading…</p>`:`<ul class="facts">
         <li>✅ <b>Private sessions</b> — for 1 or 2 swimmers</li>
         <li>✅ <b>Small groups</b> of 3 swimmers</li>
@@ -346,6 +348,7 @@ function renderBook(){
       <div><label>Gender</label><select id="f-gender"><option value="m" ${c.gender!=="f"?"selected":""}>Male</option><option value="f" ${c.gender==="f"?"selected":""}>Female</option></select></div></div>
       <label>Level</label><select id="f-level"><option value="">— Choose level —</option>${["Baby swimming","Beginner — first time","Can swim a little","Intermediate","Advanced / competitive"].map(x=>`<option ${c.level===x?"selected":""}>${x}</option>`).join("")}</select>
       <label>Parent's name <span class="muted">(or yours if booking for yourself)</span></label><input id="f-parent" value="${esc(c.parentName)}" autocomplete="name">
+      <label>Location</label><select id="f-loc"><option value="">— Choose location —</option>${LOCATIONS.map(x=>`<option ${c.location===x?"selected":""}>${x}</option>`).join("")}</select>
       <label>Mobile number (WhatsApp)</label><input id="f-phone" type="tel" inputmode="tel" dir="ltr" value="${esc(c.phone)}" placeholder="01xxxxxxxxx" autocomplete="tel">
       <div class="actions"><button class="btn block" data-act="s1next">Next</button></div></div>`;return}
   if(f.step===2){
@@ -403,7 +406,7 @@ function renderBook(){
       <div class="actions"><button class="btn ghost" data-act="back">Back</button><button class="btn ok" style="flex:1" data-act="submit">${custom?"Send request":"Confirm booking"}</button></div></div>`;
   }
 }
-function readStep1(){const g=id=>$(id)?.value.trim()||"";S.form.child={childName:g("f-child"),age:g("f-age"),gender:g("f-gender"),level:g("f-level"),parentName:g("f-parent"),phone:g("f-phone").replace(/\s/g,""),notes:g("f-notes")}}
+function readStep1(){const g=id=>$(id)?.value.trim()||"";S.form.child={childName:g("f-child"),age:g("f-age"),gender:g("f-gender"),level:g("f-level"),parentName:g("f-parent"),phone:g("f-phone").replace(/\s/g,""),location:g("f-loc"),notes:g("f-notes")}}
 function keepReq(){const f=S.form;for(const i of [0,1]){if($("f-rd"+i))f.req[i]={day:$("f-rd"+i).value,time:$("f-rt"+i).value}}if($("f-alt"))f.alt=$("f-alt").value.trim()}
 function keep2(){const f=S.form;if($("f-c2n")){f.c2n=$("f-c2n").value.trim();f.c2a=$("f-c2a").value.trim()}
   for(let i=0;$("f-sib"+i+"n");i++)f.sibs[i]={name:$("f-sib"+i+"n").value.trim(),age:$("f-sib"+i+"a").value.trim()}}
@@ -424,6 +427,7 @@ $("v-book").addEventListener("click",async e=>{
   if(a==="s1next"){readStep1();const c=f.child;
     if(!c.childName||!c.age||!c.parentName)return toast("Enter the swimmer's name, age and your name");
     if(!c.level)return toast("Choose the swimmer's level");
+    if(!c.location)return toast("Choose your location");
     if(!/^01[0-9]{9}$/.test(c.phone))return toast("Mobile number must be 11 digits starting with 01");
     f.step=2;forceBook();scrollTo(0,0)}
   if(a==="s2next"){keep2();if(f.ptype==="p2"&&(!f.c2n||!f.c2a))return toast("Enter the second swimmer's name and age");
@@ -455,8 +459,9 @@ $("v-book").addEventListener("click",async e=>{
 
 /* ---------- booking cards ---------- */
 const STATUS={pending:["Awaiting payment check","s-pending"],paid:["Confirmed ✔","s-paid"],cancelled:["Cancelled","s-cancelled"],done:["Package finished","s-done"]};
+const LOCATIONS=["Rehab","El Shorouk","New Cairo (Fifth Settlement)"];
 function bookingMsg(b){
-  const L=[`New ${b.preferredTimes?"booking request":"booking"} - ${S.settings.name}`,`Swimmer: ${b.childName} (${b.age}) — ${b.level}`,...(b.child2Name?[`Second swimmer: ${b.child2Name} (${b.child2Age})`]:[]),...((b.siblings||[]).length?[`Siblings: ${b.siblings.join(", ")}`]:[]),`Parent: ${b.parentName} — ${b.phone}`,`Package: ${b.package} — ${b.sessionType||"Private"} (${b.amount} EGP${b.ptype==="group"?" per swimmer":b.ptype==="sib"?" for all siblings":""})`];
+  const L=[`New ${b.preferredTimes?"booking request":"booking"} - ${S.settings.name}`,`Swimmer: ${b.childName} (${b.age}) — ${b.level}`,...(b.child2Name?[`Second swimmer: ${b.child2Name} (${b.child2Age})`]:[]),...((b.siblings||[]).length?[`Siblings: ${b.siblings.join(", ")}`]:[]),`Parent: ${b.parentName} — ${b.phone}`,...(b.location?[`Location: ${b.location}`]:[]),`Package: ${b.package} — ${b.sessionType||"Private"} (${b.amount} EGP${b.ptype==="group"?" per swimmer":b.ptype==="sib"?" for all siblings":""})`];
   if(b.preferredTimes)L.push(`Times a week: ${b.perWeek||2}`,`Requested times: ${b.preferredTimes}`);else L.push(`Times: ${(b.slots||[]).map(slotLabel).join(", ")}`);
   L.push(`Start: ${b.start?fmtDate(new Date(b.start+"T12:00:00")):"-"}`);
   L.push(b.ref?`Payment: InstaPay from ${b.payer}, ref ${b.ref}`:"Payment: after the time is confirmed");
@@ -465,7 +470,7 @@ function bookingMsg(b){
   return L.join("\n");
 }
 function waMsg(b){const lines=(b.slots||[]).map(s=>`${slotLabel(s)} with ${coachById(cOf((b.coachBySlot||{})[s]))?.name||"the coach"}`).join("\n"),d=sessionDates(b);
-  return b.status==="paid"?`Hi ${b.parentName}\n${b.childName}'s booking at ${S.settings.name} (${b.package}) is confirmed\nSchedule:\n${lines}\nFirst class: ${d[0]?fmtDate(d[0].date):""}${S.settings.location?"\nLocation: "+S.settings.location:""}`
+  return b.status==="paid"?`Hi ${b.parentName}\n${b.childName}'s booking at ${S.settings.name} (${b.package}) is confirmed\nSchedule:\n${lines}\nFirst class: ${d[0]?fmtDate(d[0].date):""}${b.location||S.settings.location?"\nLocation: "+(b.location||S.settings.location):""}`
     :(b.slots||[]).length&&!b.ref?`Hi ${b.parentName}\n${b.childName}'s time at ${S.settings.name} is confirmed\nSchedule:\n${lines}\nFirst class: ${d[0]?fmtDate(d[0].date):""}\n\nPlease pay ${b.amount} EGP here:\n${payLinkFor(b)}`
     :`Hi ${b.parentName}\nAbout ${b.childName}'s booking (${b.package}) for ${b.amount} EGP`}
 const payLinkFor=b=>`https://${location.host}/#pay-${b.id}`;
@@ -513,6 +518,7 @@ function card(b,admin){
   if(b.status==="pending"&&b.preferredTimes&&!b.ref)sl=(b.slots||[]).length?"Time confirmed — awaiting payment":"Time requested";if(repPay&&b.status==="pending"){sl="Paid — check transfer";sc="s-paid"}const dates=sessionDates(b),now=new Date();now.setHours(0,0,0,0);const next=dates.find(x=>x.date>=now);
   let h=`<div class="bk"><div class="hd"><b>${esc(b.childName)} <span class="muted">(${esc(b.age)})</span></b><span class="status ${sc}">${sl}</span></div>
     <div class="kv"><span>Package:</span> ${esc(b.package)} • ${esc(b.sessionType||"Private")}${b.child2Name?` • with ${esc(b.child2Name)} (${esc(b.child2Age)})`:""}${(b.siblings||[]).length?` • with ${b.siblings.map(esc).join(", ")}`:""} • ${money(b.amount)}</div>
+    ${b.location?`<div class="kv"><span>Location:</span> <b>📍 ${esc(b.location)}</b></div>`:""}
     ${b.preferredTimes?`<div class="kv"><span>Requested times:</span> <b>${esc(b.preferredTimes)}</b></div>`:""}
     <div class="kv"><span>Times:</span> ${(b.slots||[]).length?"":"to be arranged"}${(b.slots||[]).map(s=>`${slotLabel(s)} (${esc(coachById(cOf((b.coachBySlot||{})[s]))?.name||"coach not assigned yet")})`).join(" • ")}</div>
     <div class="kv"><span>From</span> ${dates[0]?fmtDate(dates[0].date):"-"} <span>to</span> ${dates.length?fmtDate(dates.at(-1).date):"-"}</div>
