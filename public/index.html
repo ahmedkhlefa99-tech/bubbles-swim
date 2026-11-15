@@ -449,7 +449,7 @@ $("v-book").addEventListener("click",async e=>{
 /* ---------- booking cards ---------- */
 const STATUS={pending:["Awaiting payment check","s-pending"],paid:["Confirmed ✔","s-paid"],cancelled:["Cancelled","s-cancelled"],done:["Package finished","s-done"]};
 function bookingMsg(b){
-  const L=[`New ${b.preferredTimes?"booking request":"booking"} — ${S.settings.name} 🫧`,`Swimmer: ${b.childName} (${b.age}) — ${b.level}`,...(b.child2Name?[`Second swimmer: ${b.child2Name} (${b.child2Age})`]:[]),...((b.siblings||[]).length?[`Siblings: ${b.siblings.join(", ")}`]:[]),`Parent: ${b.parentName} — ${b.phone}`,`Package: ${b.package} — ${b.sessionType||"Private"} (${b.amount} EGP${b.ptype==="group"?" per swimmer":b.ptype==="sib"?" for all siblings":""})`];
+  const L=[`New ${b.preferredTimes?"booking request":"booking"} - ${S.settings.name}`,`Swimmer: ${b.childName} (${b.age}) — ${b.level}`,...(b.child2Name?[`Second swimmer: ${b.child2Name} (${b.child2Age})`]:[]),...((b.siblings||[]).length?[`Siblings: ${b.siblings.join(", ")}`]:[]),`Parent: ${b.parentName} — ${b.phone}`,`Package: ${b.package} — ${b.sessionType||"Private"} (${b.amount} EGP${b.ptype==="group"?" per swimmer":b.ptype==="sib"?" for all siblings":""})`];
   if(b.preferredTimes)L.push(`Times a week: ${b.perWeek||2}`,`Requested times: ${b.preferredTimes}`);else L.push(`Times: ${(b.slots||[]).map(slotLabel).join(", ")}`);
   L.push(`Start: ${b.start?fmtDate(new Date(b.start+"T12:00:00")):"-"}`);
   L.push(b.ref?`Payment: InstaPay from ${b.payer}, ref ${b.ref}`:"Payment: after the time is confirmed");
@@ -458,9 +458,9 @@ function bookingMsg(b){
   return L.join("\n");
 }
 function waMsg(b){const lines=(b.slots||[]).map(s=>`${slotLabel(s)} with ${coachById(cOf((b.coachBySlot||{})[s]))?.name||"the coach"}`).join("\n"),d=sessionDates(b);
-  return b.status==="paid"?`Hi ${b.parentName} 👋\n${b.childName}'s booking at ${S.settings.name} (${b.package}) is confirmed ✅\nSchedule:\n${lines}\nFirst class: ${d[0]?fmtDate(d[0].date):""}${S.settings.location?"\nLocation: "+S.settings.location:""}`
-    :(b.slots||[]).length&&!b.ref?`Hi ${b.parentName} 👋\n${b.childName}'s time at ${S.settings.name} is confirmed ✅\nSchedule:\n${lines}\nFirst class: ${d[0]?fmtDate(d[0].date):""}\n\nPlease pay ${b.amount} EGP here:\n${payLinkFor(b)}`
-    :`Hi ${b.parentName} 👋\nAbout ${b.childName}'s booking (${b.package}) for ${b.amount} EGP`}
+  return b.status==="paid"?`Hi ${b.parentName}\n${b.childName}'s booking at ${S.settings.name} (${b.package}) is confirmed\nSchedule:\n${lines}\nFirst class: ${d[0]?fmtDate(d[0].date):""}${S.settings.location?"\nLocation: "+S.settings.location:""}`
+    :(b.slots||[]).length&&!b.ref?`Hi ${b.parentName}\n${b.childName}'s time at ${S.settings.name} is confirmed\nSchedule:\n${lines}\nFirst class: ${d[0]?fmtDate(d[0].date):""}\n\nPlease pay ${b.amount} EGP here:\n${payLinkFor(b)}`
+    :`Hi ${b.parentName}\nAbout ${b.childName}'s booking (${b.package}) for ${b.amount} EGP`}
 const payLinkFor=b=>`https://${location.host}/#pay-${b.id}`;
 async function reportPayment(b,payer,ref){
   const doc={kind:"payment",bookingId:b.id,status:"pending",childName:String(b.childName||"").slice(0,59),parentName:String(b.parentName||"").slice(0,59),phone:String(b.phone||"").slice(0,19),slots:[],payer:payer.slice(0,80),ref:ref.slice(0,40),amount:b.amount,createdAt:new Date().toISOString()};
@@ -513,10 +513,12 @@ function card(b,admin){
       ${b.notes?`<div class="kv"><span>Notes:</span> ${esc(b.notes)}</div>`:""}
       ${(b.slots||[]).map(s=>`<div class="tbl-row"><span style="flex:1;font-size:14px">${slotLabel(s)}${b.ptype==="group"?` <span class="muted">• group ${groupFill(s)}/3</span>`:""}</span><select style="flex:1.3" data-coach="${b.id}" data-s="${s}"><option value="">— coach —</option>${S.settings.coaches.map(c=>{const cur=cOf((b.coachBySlot||{})[s])===c.id,free=coachFree(c.id,s,b.ptype,b.id);return `<option value="${c.id}" ${cur?"selected":""} ${!free&&!cur?"disabled":""}>${esc(c.name)}${!free&&!cur?" (busy)":""}</option>`}).join("")}</select></div>`).join("")}
       <div class="actions">
-        ${b.status==="pending"?`<button class="btn sm ok" data-st="paid" data-id="${b.id}">Confirm payment</button>`:""}
+        ${b.status==="pending"&&!b.ref&&!repPay&&(b.slots||[]).length?`<a class="btn sm ok" href="https://wa.me/${waNum(b.phone)}?text=${encodeURIComponent(waMsg(b))}" target="_blank" rel="noopener">📲 Send time & payment link</a>`:""}
+        ${b.status==="pending"&&(b.ref||repPay)?`<button class="btn sm ok" data-st="paid" data-id="${b.id}">✔ Confirm payment received</button>`:""}
+        ${b.status==="pending"&&!b.ref&&!repPay&&(b.slots||[]).length?`<button class="btn sm ghost" data-st="paid" data-id="${b.id}">Mark as paid (cash/other)</button>`:""}
         ${b.status==="paid"?`<button class="btn sm ghost" data-st="done" data-id="${b.id}">Package finished</button>`:""}
         ${isActive(b)?`<button class="btn sm bad" data-st="cancelled" data-id="${b.id}">Cancel</button>`:`<button class="btn sm ghost" data-st="pending" data-id="${b.id}">Restore</button><button class="btn sm bad" data-del="${b.id}">Delete forever</button>`}
-        <a class="btn sm ghost" href="https://wa.me/${waNum(b.phone)}?text=${encodeURIComponent(waMsg(b))}" target="_blank" rel="noopener">WhatsApp message</a>
+        ${b.status==="pending"&&!b.ref&&!repPay&&(b.slots||[]).length?"":`<a class="btn sm ghost" href="https://wa.me/${waNum(b.phone)}?text=${encodeURIComponent(waMsg(b))}" target="_blank" rel="noopener">WhatsApp message</a>`}
       </div>`;
   }
   return h+"</div>";
