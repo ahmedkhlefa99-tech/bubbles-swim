@@ -477,7 +477,7 @@ function renderBook(){
       <label>Notes (optional)</label><textarea id="f-notes2" rows="2" placeholder="e.g. prefer a female coach, health notes, anything we should know">${esc(f.child.notes||"")}</textarea>
       ${custom?`<div class="note">The coach will message you on WhatsApp to confirm your time. Then you'll get a link to pay with InstaPay.</div>`:`<div class="pay"><b>Pay with InstaPay 💳</b>
         ${st.ipa?`<div class="ipa"><span>${esc(st.ipa)}</span><button class="btn sm ghost" data-act="copyIpa">Copy</button></div>`:`<p class="muted">The payment address will appear here once the coach adds it.</p>`}
-        ${st.payLink?`<a class="btn sun block" href="${esc(st.payLink)}" target="_blank" rel="noopener">Open InstaPay and pay ${money(p.price)}</a>`:""}
+        ${st.payLink?`<a class="btn sun block" href="${esc(cleanLink(st.payLink))}" target="_blank" rel="noopener">Open InstaPay and pay ${money(p.price)}</a>`:""}
         <p class="muted" style="margin:8px 0 0">Transfer the exact amount, then enter the sender's name and the transaction reference shown after the transfer.</p>
         <label>Name on the sending account</label><input id="f-payer" value="${esc(f.payer)}">
         <label>Transaction reference</label><input id="f-ref" dir="ltr" value="${esc(f.ref)}" placeholder="123456789012">
@@ -552,6 +552,7 @@ function waMsg(b){const lines=(b.slots||[]).map(s=>`${slotLabel(s)} with ${coach
   return b.status==="paid"?`Hi ${b.parentName}\n${b.childName}'s booking at ${S.settings.name} (${b.package}) is confirmed\nSchedule:\n${lines}\nFirst class: ${d[0]?fmtDate(d[0].date):""}${b.location||S.settings.location?"\nLocation: "+(b.location||S.settings.location):""}`
     :(b.slots||[]).length&&!b.ref?`Hi ${b.parentName}\n${b.childName}'s time at ${S.settings.name} is confirmed\nSchedule:\n${lines}\nFirst class: ${d[0]?fmtDate(d[0].date):""}\n\nPlease pay ${b.amount} EGP here:\n${payLinkFor(b)}`
     :`Hi ${b.parentName}\nAbout ${b.childName}'s booking (${b.package}) for ${b.amount} EGP`}
+const cleanLink=t=>((t||"").match(/https?:\/\/\S+/)||[""])[0];
 const payLinkFor=b=>`https://${location.host}/#pay-${b.id}`;
 // shrink a screenshot so it fits comfortably in one database document (well under 1 MB)
 function shrinkImage(file){return new Promise((res,rej)=>{const r=new FileReader();r.onerror=rej;r.onload=()=>{const img=new Image();img.onerror=rej;img.onload=()=>{
@@ -577,7 +578,7 @@ function renderPay(){
   el.innerHTML=`<div class="card"><h2>Pay for your booking 💳</h2>${head}
     <div class="pay"><b>Pay with InstaPay</b>
       ${st.ipa?`<div class="ipa"><span>${esc(st.ipa)}</span><button class="btn sm ghost" data-act="copyIpaP">Copy</button></div>`:`<p class="muted">The coach will share the payment details on WhatsApp.</p>`}
-      ${st.payLink?`<a class="btn sun block" href="${esc(st.payLink)}" target="_blank" rel="noopener">Open InstaPay and pay ${money(b.amount)}</a>`:""}
+      ${st.payLink?`<a class="btn sun block" href="${esc(cleanLink(st.payLink))}" target="_blank" rel="noopener">Open InstaPay and pay ${money(b.amount)}</a>`:""}
       <p class="muted" style="margin:8px 0 0">Transfer the exact amount, then upload a screenshot of the transfer.</p>
       <label>Name on the sending account</label><input id="p-payer">
       <label>Screenshot of the transfer</label><input id="p-shot" type="file" accept="image/*">
@@ -745,7 +746,7 @@ function renderSettings(){
     <div class="note">Coach login link: the academy link with <b>#admin</b> at the end</div>`;
 }
 function readSettings(){const st=structuredClone(S.settings),v=id=>$(id).value.trim();
-  Object.assign(st,{name:v("st-name"),location:v("st-loc"),phone:v("st-phone"),instagram:v("st-ig"),about:v("st-about"),ipa:v("st-ipa"),payLink:v("st-link"),sessionMinutes:+v("st-min")||45,perCoach:Math.max(1,+v("st-per")||1)});
+  Object.assign(st,{name:v("st-name"),location:v("st-loc"),phone:v("st-phone"),instagram:v("st-ig"),about:v("st-about"),ipa:v("st-ipa"),payLink:cleanLink(v("st-link")),sessionMinutes:+v("st-min")||45,perCoach:Math.max(1,+v("st-per")||1)});
   st.coaches=[...document.querySelectorAll("#st-coaches [data-c]")].map(r=>({id:r.dataset.c,name:r.querySelector("[data-k=name]").value.trim()||"Coach",gender:r.querySelector("[data-k=gender]").value}));
   st.packages=[...document.querySelectorAll("#st-pkgs [data-p]")].map(r=>({id:r.dataset.p,type:r.querySelector("[data-k=type]").value,count:Math.max(0,+r.querySelector("[data-k=count]").value||0),minutes:Math.max(0,+r.querySelector("[data-k=minutes]").value||0),label:r.querySelector("[data-k=label]").value.trim()||"Package",sessions:Math.max(1,+r.querySelector("[data-k=sessions]").value||1),price:Math.max(0,+r.querySelector("[data-k=price]").value||0)}));
   st.pkgVersion=6;return st}
