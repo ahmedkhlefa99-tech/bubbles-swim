@@ -166,11 +166,13 @@ const DEFAULT_SETTINGS = {
   perCoach:1, sessionMinutes:45,
   about:"Swimming lessons for every age — from baby swimming to adults. Patient, small classes that build water confidence, safety and real technique at your own pace.",
   coaches:[{id:"c1",name:"Coach Ahmed",gender:"m"},{id:"c2",name:"Assistant Coach",gender:"f"}],
+  pkgVersion:2,
   packages:[
-    {id:"p1",label:"Single class",sessions:1,price:400},
-    {id:"p4",label:"4-class package",sessions:4,price:1400},
-    {id:"p8",label:"8-class package",sessions:8,price:2600},
-    {id:"p12",label:"12-class package",sessions:12,price:3600}
+    {id:"a4",type:"p1",label:"Private · 4 sessions",sessions:4,price:1350},
+    {id:"a8",type:"p1",label:"Private · 8 sessions",sessions:8,price:2500},
+    {id:"b4",type:"p2",label:"Private for 2 · 4 sessions",sessions:4,price:2700},
+    {id:"b8",type:"p2",label:"Private for 2 · 8 sessions",sessions:8,price:4500},
+    {id:"g4",type:"group",label:"Small group · 4 sessions",sessions:4,price:1000}
   ]
 };
 const DEFAULT_SLOTS = [[0,"09:00"],[0,"10:00"],[0,"11:00"],[6,"09:00"],[6,"10:00"],[6,"11:00"],[1,"17:00"],[1,"18:00"],[3,"17:00"],[3,"18:00"]]
@@ -178,7 +180,7 @@ const DEFAULT_SLOTS = [[0,"09:00"],[0,"10:00"],[0,"11:00"],[6,"09:00"],[6,"10:00
 
 const S = { settings:structuredClone(DEFAULT_SETTINGS), slots:[], holds:[], bookings:[], mine:{},
   mode:"loading", fs:null, F:null, auth:null, A:null, admin:null, tab:"book", adminFilter:"pending", schedCoach:"all",
-  form:{step:1, child:{}, pkg:null, perWeek:1, slots:[], coachPref:"any", start:"", payer:"", ref:"", mode:"slots", pref:"", ctype:"private"}, lastBooking:null };
+  form:{step:1, child:{}, pkg:null, perWeek:1, slots:[], coachPref:"any", start:"", payer:"", ref:"", mode:"slots", pref:"", ptype:"p1", c2n:"", c2a:""}, lastBooking:null };
 
 /* ---------- helpers ---------- */
 const $=id=>document.getElementById(id);
@@ -191,10 +193,22 @@ const coachById=id=>S.settings.coaches.find(c=>c.id===id);
 function fmtTime(t){if(!t)return"";let [h,m]=t.split(":").map(Number);return `${((h+11)%12)+1}:${String(m).padStart(2,"0")} ${h>=12?"PM":"AM"}`}
 function slotLabel(id){const s=slotById(id);return s?`${DAYS[s.day]} ${fmtTime(s.time)}`:"Removed slot"}
 const isActive=x=>x.status==="pending"||x.status==="paid";
-const slotCap=()=>S.settings.coaches.length*Number(S.settings.perCoach||1);
+const TYPES={p1:{name:"Private — 1 swimmer",short:"Private",note:""},p2:{name:"Private — 2 swimmers",short:"Private for 2",note:" for 2 swimmers"},group:{name:"Small group — 3 swimmers",short:"Small group",note:" per swimmer"}};
+const typeOfPkg=p=>(p&&TYPES[p.type])?p.type:"p1";
+const isG=v=>typeof v==="string"&&v.startsWith("g:");
+const cOf=v=>String(v||"").replace(/^g:/,"");
+const slotCap=()=>S.settings.coaches.length;
+function cStat(cid,sid,except){let pr=0,gr=0;for(const h of S.holds){if(!isActive(h)||h.id===except)continue;const v=(h.coachBySlot||{})[sid];if(v===undefined||cOf(v)!==cid)continue;isG(v)?gr++:pr++}return{pr,gr}}
+function spotsFor(type,sid,except){ // how many more bookings of this type fit in a slot
+  let empty=0,groupOpen=0,uP=0,uG=0;
+  for(const c of S.settings.coaches){const st=cStat(c.id,sid,except);if(!st.pr&&!st.gr)empty++;else if(!st.pr&&st.gr<3)groupOpen+=3-st.gr}
+  for(const h of S.holds){if(!isActive(h)||h.id===except||!(h.slots||[]).includes(sid))continue;const v=(h.coachBySlot||{})[sid];if(v===undefined||cOf(v)==="")isG(v)?uG++:uP++}
+  if(type==="group")return Math.max(0,groupOpen+Math.max(0,empty-uP)*3-uG);
+  return Math.max(0,empty-uP-Math.ceil(Math.max(0,uG-groupOpen)/3));
+}
+function groupFill(sid){let best=0;for(const c of S.settings.coaches){const st=cStat(c.id,sid);if(!st.pr&&st.gr>best)best=st.gr}return best}
 const slotUse=sid=>S.holds.filter(h=>isActive(h)&&(h.slots||[]).includes(sid)).length;
-const coachLoad=(cid,sid,except)=>S.holds.filter(h=>isActive(h)&&h.id!==except&&(h.coachBySlot||{})[sid]===cid).length;
-const coachFree=(cid,sid,except)=>coachLoad(cid,sid,except)<Number(S.settings.perCoach||1);
+const coachFree=(cid,sid,type,except)=>{const st=cStat(cid,sid,except);return type==="group"?(!st.pr&&st.gr<3):(!st.pr&&!st.gr)};
 const pkgOf=id=>S.settings.packages.find(p=>p.id===id)||S.settings.packages[0];
 function todayISO(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)}
 function fmtDate(d){return d.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"})}
@@ -206,7 +220,9 @@ function sessionDates(b){
   while(out.length<b.sessions&&g<500){for(const h of days.filter(x=>x.js===d.getDay()))if(out.length<b.sessions)out.push({date:new Date(d),slot:h.id});d.setDate(d.getDate()+1);g++}
   return out;
 }
-function autoAssign(slots,pref,except){const o={};for(const s of slots){const c=[...S.settings.coaches].sort((a,b)=>(b.id===pref)-(a.id===pref)||coachLoad(a.id,s,except)-coachLoad(b.id,s,except)).find(c=>coachFree(c.id,s,except));o[s]=c?c.id:""}return o}
+function autoAssign(slots,pref,type,except){const o={},g=type==="group";for(const s of slots){
+  const c=[...S.settings.coaches].sort((a,b)=>(b.id===pref)-(a.id===pref)||(g?(cStat(b.id,s,except).gr-cStat(a.id,s,except).gr):0)).find(c=>coachFree(c.id,s,type,except));
+  o[s]=(g?"g:":"")+(c?c.id:"")}return o}
 function myIds(){try{return JSON.parse(localStorage.getItem("bubbles_my")||"[]")}catch(e){return[]}}
 function saveMyId(id){try{const a=myIds();a.unshift(id);localStorage.setItem("bubbles_my",JSON.stringify(a.slice(0,30)))}catch(e){}}
 function waNum(p){return "2"+String(p||"").replace(/\D/g,"")}
@@ -219,7 +235,7 @@ async function init(){
     const [{initializeApp},F,A]=await Promise.all([import(FB+"firebase-app.js"),import(FB+"firebase-firestore.js"),import(FB+"firebase-auth.js")]);
     const app=initializeApp(firebaseConfig);S.F=F;S.A=A;S.fs=F.getFirestore(app);S.auth=A.getAuth(app);S.mode="live";
     const slow=setTimeout(()=>{if(!S._loaded)toast("Slow connection… loading data")},10000);
-    F.onSnapshot(F.doc(S.fs,"settings","main"),s=>{S._loaded=true;clearTimeout(slow);if(s.exists())S.settings={...structuredClone(DEFAULT_SETTINGS),...s.data()};render()},e=>console.warn(e));
+    F.onSnapshot(F.doc(S.fs,"settings","main"),s=>{S._loaded=true;clearTimeout(slow);if(s.exists()){const d={...s.data()};if(!(d.pkgVersion>=2))delete d.packages;S.settings={...structuredClone(DEFAULT_SETTINGS),...d}}render()},e=>console.warn(e));
     F.onSnapshot(F.collection(S.fs,"slots"),q=>{S.slots=q.docs.map(d=>({id:d.id,...d.data()}));render()},e=>console.warn(e));
     F.onSnapshot(F.collection(S.fs,"holds"),q=>{S.holds=q.docs.map(d=>({id:d.id,...d.data()}));render()},e=>console.warn(e));
     for(const id of myIds())watchMine(id);
@@ -303,7 +319,8 @@ function renderBook(){
       ${st.about?`<p class="muted" style="margin:0">${esc(st.about)}</p>`:""}
       <div class="tiles"><div class="tile"><span>👶</span>Babies</div><div class="tile"><span>🧒</span>Kids</div><div class="tile"><span>🧑</span>Adults</div></div>
       ${S.mode==="loading"||(S.mode==="live"&&!S._loaded)?`<p class="muted">Loading…</p>`:`<ul class="facts">
-        <li>✅ <b>Private sessions</b> or <b>small-group sessions</b> (max 3 swimmers)</li>
+        <li>✅ <b>Private sessions</b> — for 1 or 2 swimmers</li>
+        <li>✅ <b>Small groups</b> of 3 swimmers</li>
         <li>✅ ${st.sessionMinutes}-minute classes, all levels</li>
       </ul>`}
       <h3 style="margin-bottom:4px">How it works</h3>
@@ -320,10 +337,16 @@ function renderBook(){
       <label>Notes (optional)</label><textarea id="f-notes" rows="2" placeholder="Anything the coach should know">${esc(c.notes)}</textarea>
       <div class="actions"><button class="btn block" data-act="s1next">Next</button></div></div>`;return}
   if(f.step===2){
-    el.innerHTML=`<div class="card">${steps}<h2>2. Choose a package</h2>
-      <div class="pkg">${st.packages.map(p=>`<button class="chip ${f.pkg===p.id?"on":""}" data-pkg="${p.id}"><b>${esc(p.label)}</b><span>${money(p.price)}${p.sessions>1?" • "+money(Math.round(p.price/p.sessions))+" / class":""}</span></button>`).join("")}</div>
-      <h3>Session type</h3>
-      <div class="chips">${[["private","Private"],["group","Small group (max 3)"]].map(([k,l])=>`<button class="chip ${f.ctype===k?"on":""}" data-ct="${k}">${l}</button>`).join("")}</div>
+    const avail=Object.keys(TYPES).filter(k=>st.packages.some(p=>typeOfPkg(p)===k));if(!avail.includes(f.ptype))f.ptype=avail[0]||"p1";
+    const list=st.packages.filter(p=>typeOfPkg(p)===f.ptype);
+    el.innerHTML=`<div class="card">${steps}<h2>2. Choose your package</h2>
+      <h3>Who's swimming?</h3>
+      <div class="chips">${avail.map(k=>`<button class="chip ${f.ptype===k?"on":""}" data-ty="${k}">${TYPES[k].name}</button>`).join("")}</div>
+      ${f.ptype==="p2"?`<div class="note">Two swimmers share the session with one coach.</div>
+      <div class="row"><div><label>Second swimmer's name</label><input id="f-c2n" value="${esc(f.c2n)}"></div><div><label>Age</label><input id="f-c2a" value="${esc(f.c2a)}" placeholder="e.g. 8 years"></div></div>`:""}
+      ${f.ptype==="group"?`<div class="note">Small groups run with <b>3 swimmers</b>. Book your place now — the group starts once 3 swimmers have joined, and we'll confirm on WhatsApp.</div>`:""}
+      <h3>Package</h3>
+      <div class="pkg">${list.map(p=>`<button class="chip ${f.pkg===p.id?"on":""}" data-pkg="${p.id}"><b>${esc(p.label)}</b><span>${money(p.price)}${TYPES[typeOfPkg(p)].note}</span></button>`).join("")}</div>
       <h3>How many times a week?</h3>
       <div class="chips">${[1,2,3].map(n=>`<button class="chip ${f.perWeek===n?"on":""}" data-pw="${n}">${["Once","Twice","3 times"][n-1]}</button>`).join("")}</div>
       <h3>Preferred coach</h3>
@@ -332,15 +355,15 @@ function renderBook(){
   if(f.step===3){
     const act=S.slots.filter(s=>s.active!==false).sort((a,b)=>a.day-b.day||a.time.localeCompare(b.time));
     const byDay={};act.forEach(s=>(byDay[s.day]=byDay[s.day]||[]).push(s));
-    const cap=slotCap(),need=Math.min(f.perWeek,pkgOf(f.pkg).sessions);
+    const need=Math.min(f.perWeek,pkgOf(f.pkg).sessions);
     const startVal=$("f-start")?.value||f.start||todayISO();
     el.innerHTML=`<div class="card">${steps}<h2>3. Pick your times</h2>
       <div class="seg"><button class="${f.mode==="slots"?"on":""}" data-mode="slots">Pick an open slot</button><button class="${f.mode==="custom"?"on":""}" data-mode="custom">Suggest my own time</button></div>
       ${f.mode==="custom"?`<p class="muted">None of the open slots work for you? Write the days and times that suit you, and the coach will arrange a time and a coach for you on WhatsApp.</p>
       <label>Times that suit you</label><textarea id="f-pref" rows="3" placeholder="e.g. Monday & Wednesday after 5 PM, or Saturday morning">${esc(f.pref)}</textarea>`:`<p class="muted">Pick <b>${need}</b> weekly ${need===1?"slot":"slots"} (${st.sessionMinutes}-minute classes). Your slot repeats every week until the package ends. No slot fits? Tap “Suggest my own time”.</p>
       ${Object.keys(byDay).length?Object.keys(byDay).map(d=>`<div class="day">${DAYS[d]}</div><div class="chips">${byDay[d].map(s=>{
-        const left=cap-slotUse(s.id),on=f.slots.includes(s.id),full=left<=0&&!on,prefOk=f.coachPref==="any"||coachFree(f.coachPref,s.id);
-        return `<button class="chip slot ${on?"on":""} ${full?"full":""}" data-slot="${s.id}" ${full?"disabled":""}>${fmtTime(s.time)}<small>${full?"Full":left===1?"1 spot left":`${left} spots`}${!full&&!prefOk?" • other coach":""}</small></button>`}).join("")}</div>`).join(""):`<div class="empty">No open slots right now — tap “Suggest my own time”.</div>`}`}
+        const left=spotsFor(f.ptype,s.id),on=f.slots.includes(s.id),full=left<=0&&!on,prefOk=f.coachPref==="any"||coachFree(f.coachPref,s.id,f.ptype),gf=f.ptype==="group"?groupFill(s.id):0;
+        return `<button class="chip slot ${on?"on":""} ${full?"full":""}" data-slot="${s.id}" ${full?"disabled":""}>${fmtTime(s.time)}<small>${full?"Full":gf?`Group ${gf}/3 — join`:f.ptype==="group"?"New group":"Available"}${!full&&!prefOk?" • other coach":""}</small></button>`}).join("")}</div>`).join(""):`<div class="empty">No open slots right now — tap “Suggest my own time”.</div>`}`}
       <label>${f.mode==="custom"?"Preferred start date":"First class date"}</label><input id="f-start" type="date" value="${esc(startVal)}" min="${todayISO()}">
       <div class="actions"><button class="btn ghost" data-act="back">Back</button><button class="btn" style="flex:1" data-act="s3next" ${f.mode==="custom"||f.slots.length===need?"":"disabled"}>${f.mode==="custom"?"Next":`Next (${f.slots.length}/${need})`}</button></div></div>`;return}
   if(f.step===4){
@@ -348,11 +371,12 @@ function renderBook(){
     el.innerHTML=`<div class="card">${steps}<h2>4. Review & pay</h2>
       <div class="sum"><span>Swimmer</span><b>${esc(f.child.childName)} (${esc(f.child.age)})</b></div>
       <div class="sum"><span>Package</span><b>${esc(p.label)}</b></div>
-      <div class="sum"><span>Session type</span><b>${f.ctype==="group"?"Small group (max 3)":"Private"}</b></div>
+      <div class="sum"><span>Type</span><b>${TYPES[f.ptype].name}</b></div>
+      ${f.ptype==="p2"?`<div class="sum"><span>Second swimmer</span><b>${esc(f.c2n)} (${esc(f.c2a)})</b></div>`:""}
       ${custom?`<div class="sum"><span>Requested times</span><b>${esc(f.pref)}</b></div><div class="sum"><span>Preferred start</span><b>${fmtDate(new Date(f.start+"T12:00:00"))}</b></div>`:`<div class="sum"><span>Times</span><b>${f.slots.map(slotLabel).join(", ")}</b></div>
       <div class="sum"><span>First class</span><b>${dates[0]?fmtDate(dates[0].date):"-"}</b></div>
       <div class="sum"><span>Last class</span><b>${dates.length?fmtDate(dates.at(-1).date):"-"}</b></div>`}
-      <div class="sum"><span>Total</span><span class="total">${money(p.price)}</span></div>
+      <div class="sum"><span>Total</span><span class="total">${money(p.price)}<small style="font-size:13px;font-weight:600">${TYPES[typeOfPkg(p)].note}</small></span></div>
       ${custom?`<div class="note">The coach will message you on WhatsApp to confirm a time that suits you. You'll pay after your time is confirmed.</div>`:`<div class="pay"><b>Pay with InstaPay 💳</b>
         ${st.ipa?`<div class="ipa"><span>${esc(st.ipa)}</span><button class="btn sm ghost" data-act="copyIpa">Copy</button></div>`:`<p class="muted">The payment address will appear here once the coach adds it.</p>`}
         ${st.payLink?`<a class="btn sun block" href="${esc(st.payLink)}" target="_blank" rel="noopener">Open InstaPay and pay ${money(p.price)}</a>`:""}
@@ -364,13 +388,14 @@ function renderBook(){
   }
 }
 function readStep1(){const g=id=>$(id)?.value.trim()||"";S.form.child={childName:g("f-child"),age:g("f-age"),gender:g("f-gender"),level:g("f-level"),parentName:g("f-parent"),phone:g("f-phone").replace(/\s/g,""),notes:g("f-notes")}}
+function keep2(){const f=S.form;if($("f-c2n")){f.c2n=$("f-c2n").value.trim();f.c2a=$("f-c2a").value.trim()}}
 function forceBook(){document.activeElement?.blur?.();renderBook()}
 $("v-book").addEventListener("click",async e=>{
   const f=S.form,t=e.target.closest("button");if(!t)return;
-  if(t.dataset.pkg){f.pkg=t.dataset.pkg;f.slots=[];return forceBook()}
-  if(t.dataset.pw){f.perWeek=+t.dataset.pw;f.slots=[];return forceBook()}
-  if(t.dataset.cp){f.coachPref=t.dataset.cp;return forceBook()}
-  if(t.dataset.ct){f.ctype=t.dataset.ct;return forceBook()}
+  if(t.dataset.pkg){keep2();f.pkg=t.dataset.pkg;f.slots=[];return forceBook()}
+  if(t.dataset.pw){keep2();f.perWeek=+t.dataset.pw;f.slots=[];return forceBook()}
+  if(t.dataset.cp){keep2();f.coachPref=t.dataset.cp;return forceBook()}
+  if(t.dataset.ty){keep2();f.ptype=t.dataset.ty;f.pkg=null;f.slots=[];return forceBook()}
   if(t.dataset.mode){f.start=$("f-start")?.value||f.start;if($("f-pref"))f.pref=$("f-pref").value;f.mode=t.dataset.mode;return forceBook()}
   if(t.dataset.slot){const need=Math.min(f.perWeek,pkgOf(f.pkg).sessions);f.start=$("f-start")?.value||f.start;const i=f.slots.indexOf(t.dataset.slot);
     if(i>=0)f.slots.splice(i,1);else{if(f.slots.length>=need)f.slots.shift();f.slots.push(t.dataset.slot)}return forceBook()}
@@ -380,7 +405,7 @@ $("v-book").addEventListener("click",async e=>{
     if(!c.level)return toast("Choose the swimmer's level");
     if(!/^01[0-9]{9}$/.test(c.phone))return toast("Mobile number must be 11 digits starting with 01");
     f.step=2;forceBook();scrollTo(0,0)}
-  if(a==="s2next"){f.step=3;forceBook();scrollTo(0,0)}
+  if(a==="s2next"){keep2();if(f.ptype==="p2"&&(!f.c2n||!f.c2a))return toast("Enter the second swimmer's name and age");if(!f.pkg)return toast("Choose a package");f.step=3;forceBook();scrollTo(0,0)}
   if(a==="s3next"){f.start=$("f-start").value;if(!f.start)return toast("Choose a start date");
     if(f.mode==="custom"){f.pref=($("f-pref")?.value||"").trim();if(f.pref.length<3)return toast("Write the days and times that suit you");f.slots=[]}
     f.step=4;forceBook();scrollTo(0,0)}
@@ -391,12 +416,12 @@ $("v-book").addEventListener("click",async e=>{
     if(!custom){f.payer=$("f-payer").value.trim();f.ref=$("f-ref").value.trim();
       if(!f.payer||f.ref.length<4)return toast("Enter the sender's name and reference after transferring")}
     else{f.payer="";f.ref=""}
-    for(const s of f.slots)if(slotUse(s)>=slotCap()){toast(slotLabel(s)+" was just taken — please pick another");f.slots=f.slots.filter(x=>x!==s);f.step=3;return forceBook()}
+    for(const s of f.slots)if(spotsFor(f.ptype,s)<=0){toast(slotLabel(s)+" was just taken — please pick another");f.slots=f.slots.filter(x=>x!==s);f.step=3;return forceBook()}
     const p=pkgOf(f.pkg);
-    const b={...f.child,package:p.label,sessionType:f.ctype==="group"?"Small group":"Private",sessions:p.sessions,amount:p.price,perWeek:f.perWeek,slots:custom?[]:[...f.slots],preferredTimes:custom?f.pref.slice(0,300):"",start:f.start,coachPref:f.coachPref,
-      payer:f.payer.slice(0,80),ref:f.ref.slice(0,40),status:"pending",coachBySlot:autoAssign(f.slots,f.coachPref),createdAt:new Date().toISOString()};
+    const b={...f.child,package:p.label,ptype:f.ptype,sessionType:TYPES[f.ptype].short,child2Name:f.ptype==="p2"?f.c2n.slice(0,60):"",child2Age:f.ptype==="p2"?f.c2a.slice(0,20):"",sessions:p.sessions,amount:p.price,perWeek:f.perWeek,slots:custom?[]:[...f.slots],preferredTimes:custom?f.pref.slice(0,300):"",start:f.start,coachPref:f.coachPref,
+      payer:f.payer.slice(0,80),ref:f.ref.slice(0,40),status:"pending",coachBySlot:autoAssign(f.slots,f.coachPref,f.ptype),createdAt:new Date().toISOString()};
     t.disabled=true;
-    try{const id=await createBooking(b);S.lastBooking={id,...b};S.form={step:5,child:{},pkg:null,perWeek:1,slots:[],coachPref:"any",start:"",payer:"",ref:"",mode:"slots",pref:"",ctype:"private"};forceBook();scrollTo(0,0)}
+    try{const id=await createBooking(b);S.lastBooking={id,...b};S.form={step:5,child:{},pkg:null,perWeek:1,slots:[],coachPref:"any",start:"",payer:"",ref:"",mode:"slots",pref:"",ptype:"p1",c2n:"",c2a:""};forceBook();scrollTo(0,0)}
     catch(err){console.error(err);toast("Booking failed — please try again");t.disabled=false}
   }
   if(a==="toMine"){S.tab="mine";S.form.step=1;render()}
@@ -406,7 +431,7 @@ $("v-book").addEventListener("click",async e=>{
 /* ---------- booking cards ---------- */
 const STATUS={pending:["Awaiting payment check","s-pending"],paid:["Confirmed ✔","s-paid"],cancelled:["Cancelled","s-cancelled"],done:["Package finished","s-done"]};
 function bookingMsg(b){
-  const L=[`New ${b.preferredTimes?"time request":"booking"} — ${S.settings.name} 🫧`,`Swimmer: ${b.childName} (${b.age}) — ${b.level}`,`Parent: ${b.parentName} — ${b.phone}`,`Package: ${b.package} — ${b.sessionType||"Private"} (${b.amount} EGP)`];
+  const L=[`New ${b.preferredTimes?"time request":"booking"} — ${S.settings.name} 🫧`,`Swimmer: ${b.childName} (${b.age}) — ${b.level}`,...(b.child2Name?[`Second swimmer: ${b.child2Name} (${b.child2Age})`]:[]),`Parent: ${b.parentName} — ${b.phone}`,`Package: ${b.package} — ${b.sessionType||"Private"} (${b.amount} EGP${b.ptype==="group"?" per swimmer":""})`];
   if(b.preferredTimes)L.push(`Requested times: ${b.preferredTimes}`);else L.push(`Times: ${(b.slots||[]).map(slotLabel).join(", ")}`);
   L.push(`Start: ${b.start?fmtDate(new Date(b.start+"T12:00:00")):"-"}`);
   L.push(b.ref?`Payment: InstaPay from ${b.payer}, ref ${b.ref}`:"Payment: after the time is confirmed");
@@ -414,24 +439,24 @@ function bookingMsg(b){
   L.push(`Booking ID: ${String(b.id||"").slice(0,6).toUpperCase()}`);
   return L.join("\n");
 }
-function waMsg(b){const lines=(b.slots||[]).map(s=>`${slotLabel(s)} with ${coachById((b.coachBySlot||{})[s])?.name||"the coach"}`).join("\n"),d=sessionDates(b);
+function waMsg(b){const lines=(b.slots||[]).map(s=>`${slotLabel(s)} with ${coachById(cOf((b.coachBySlot||{})[s]))?.name||"the coach"}`).join("\n"),d=sessionDates(b);
   return b.status==="paid"?`Hi ${b.parentName} 👋\n${b.childName}'s booking at ${S.settings.name} (${b.package}) is confirmed ✅\nSchedule:\n${lines}\nFirst class: ${d[0]?fmtDate(d[0].date):""}${S.settings.location?"\nLocation: "+S.settings.location:""}`
     :`Hi ${b.parentName} 👋\nAbout ${b.childName}'s booking (${b.package}) for ${b.amount} EGP`}
 function card(b,admin){
   let [sl,sc]=STATUS[b.status]||STATUS.pending;if(b.status==="pending"&&b.preferredTimes&&!b.ref)sl="Time requested";const dates=sessionDates(b),now=new Date();now.setHours(0,0,0,0);const next=dates.find(x=>x.date>=now);
   let h=`<div class="bk"><div class="hd"><b>${esc(b.childName)} <span class="muted">(${esc(b.age)})</span></b><span class="status ${sc}">${sl}</span></div>
-    <div class="kv"><span>Package:</span> ${esc(b.package)} • ${esc(b.sessionType||"Private")} • ${money(b.amount)}</div>
+    <div class="kv"><span>Package:</span> ${esc(b.package)} • ${esc(b.sessionType||"Private")}${b.child2Name?` • with ${esc(b.child2Name)} (${esc(b.child2Age)})`:""} • ${money(b.amount)}</div>
     ${b.preferredTimes?`<div class="kv"><span>Requested times:</span> <b>${esc(b.preferredTimes)}</b></div>`:""}
-    <div class="kv"><span>Times:</span> ${(b.slots||[]).length?"":"to be arranged"}${(b.slots||[]).map(s=>`${slotLabel(s)} (${esc(coachById((b.coachBySlot||{})[s])?.name||"coach not assigned yet")})`).join(" • ")}</div>
+    <div class="kv"><span>Times:</span> ${(b.slots||[]).length?"":"to be arranged"}${(b.slots||[]).map(s=>`${slotLabel(s)} (${esc(coachById(cOf((b.coachBySlot||{})[s]))?.name||"coach not assigned yet")})`).join(" • ")}</div>
     <div class="kv"><span>From</span> ${dates[0]?fmtDate(dates[0].date):"-"} <span>to</span> ${dates.length?fmtDate(dates.at(-1).date):"-"}</div>
     ${next&&isActive(b)?`<div class="kv"><span>Next class:</span> <b>${fmtDate(next.date)} ${fmtTime(slotById(next.slot)?.time)}</b></div>`:""}`;
   if(admin){
     h+=`<div class="kv"><span>Parent:</span> ${esc(b.parentName)} • <a href="https://wa.me/${waNum(b.phone)}" target="_blank" rel="noopener" dir="ltr">${esc(b.phone)}</a></div>
       <div class="kv"><span>Level:</span> ${esc(b.level)} • ${b.gender==="f"?"Female":"Male"}${b.coachPref&&b.coachPref!=="any"?` • prefers ${esc(coachById(b.coachPref)?.name||"")}`:""}</div>
       ${b.ref?`<div class="kv"><span>Transfer:</span> ${esc(b.payer)} • ref <b dir="ltr">${esc(b.ref)}</b></div>`:`<div class="kv"><span>Transfer:</span> not paid yet</div>`}
-      ${isActive(b)&&(b.slots||[]).length<Math.min(b.perWeek||1,3)?`<div class="tbl-row"><span style="flex:1;font-size:14px">Add a slot</span><select style="flex:1.3" data-addslot="${b.id}"><option value="">— choose a slot —</option>${S.slots.filter(s=>s.active!==false&&!(b.slots||[]).includes(s.id)).sort((x,y)=>x.day-y.day||x.time.localeCompare(y.time)).map(s=>`<option value="${s.id}" ${slotUse(s.id)>=slotCap()?"disabled":""}>${slotLabel(s.id)}${slotUse(s.id)>=slotCap()?" (full)":""}</option>`).join("")}</select></div>`:""}
+      ${isActive(b)&&(b.slots||[]).length<Math.min(b.perWeek||1,3)?`<div class="tbl-row"><span style="flex:1;font-size:14px">Add a slot</span><select style="flex:1.3" data-addslot="${b.id}"><option value="">— choose a slot —</option>${S.slots.filter(s=>s.active!==false&&!(b.slots||[]).includes(s.id)).sort((x,y)=>x.day-y.day||x.time.localeCompare(y.time)).map(s=>`<option value="${s.id}" ${spotsFor(b.ptype,s.id,b.id)<=0?"disabled":""}>${slotLabel(s.id)}${spotsFor(b.ptype,s.id,b.id)<=0?" (full)":""}</option>`).join("")}</select></div>`:""}
       ${b.notes?`<div class="kv"><span>Notes:</span> ${esc(b.notes)}</div>`:""}
-      ${(b.slots||[]).map(s=>`<div class="tbl-row"><span style="flex:1;font-size:14px">${slotLabel(s)}</span><select style="flex:1.3" data-coach="${b.id}" data-s="${s}"><option value="">— coach —</option>${S.settings.coaches.map(c=>{const cur=(b.coachBySlot||{})[s]===c.id,free=coachFree(c.id,s,b.id);return `<option value="${c.id}" ${cur?"selected":""} ${!free&&!cur?"disabled":""}>${esc(c.name)}${!free&&!cur?" (busy)":""}</option>`}).join("")}</select></div>`).join("")}
+      ${(b.slots||[]).map(s=>`<div class="tbl-row"><span style="flex:1;font-size:14px">${slotLabel(s)}${b.ptype==="group"?` <span class="muted">• group ${groupFill(s)}/3</span>`:""}</span><select style="flex:1.3" data-coach="${b.id}" data-s="${s}"><option value="">— coach —</option>${S.settings.coaches.map(c=>{const cur=cOf((b.coachBySlot||{})[s])===c.id,free=coachFree(c.id,s,b.ptype,b.id);return `<option value="${c.id}" ${cur?"selected":""} ${!free&&!cur?"disabled":""}>${esc(c.name)}${!free&&!cur?" (busy)":""}</option>`}).join("")}</select></div>`).join("")}
       <div class="actions">
         ${b.status==="pending"?`<button class="btn sm ok" data-st="paid" data-id="${b.id}">Confirm payment</button>`:""}
         ${b.status==="paid"?`<button class="btn sm ghost" data-st="done" data-id="${b.id}">Package finished</button>`:""}
@@ -465,7 +490,7 @@ function renderAdmin(){
   const paidMonth=B.filter(b=>(b.status==="paid"||b.status==="done")&&(b.paidAt||b.createdAt||"").startsWith(m)).reduce((a,b)=>a+Number(b.amount||0),0);
   const pend=B.filter(b=>b.status==="pending"),act=S.slots.filter(s=>s.active!==false);
   const total=act.length*slotCap(),used=act.reduce((a,s)=>a+Math.min(slotUse(s.id),slotCap()),0);
-  const noCoach=B.filter(b=>isActive(b)&&(b.slots||[]).some(s=>!(b.coachBySlot||{})[s])).length,F=S.adminFilter;
+  const noCoach=B.filter(b=>isActive(b)&&(b.slots||[]).some(s=>!cOf((b.coachBySlot||{})[s]))).length,F=S.adminFilter;
   const list=B.filter(b=>F==="all"||(F==="pending"?b.status==="pending":F==="paid"?b.status==="paid":!isActive(b))).sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||""));
   $("v-admin").innerHTML=`<div class="stats" style="margin-top:14px">
       <div class="stat"><b>${money(paidMonth)}</b><span>Revenue this month (confirmed)</span></div>
@@ -486,7 +511,7 @@ $("v-admin").addEventListener("click",async e=>{
   if(t.dataset.f){S.adminFilter=t.dataset.f;return renderAdmin()}
   if(t.dataset.act==="logout"){if(S.mode==="live")await S.A.signOut(S.auth);S.tab="book";location.hash="";return render()}
   if(t.dataset.st){const b=S.bookings.find(x=>x.id===t.dataset.id);if(!b)return;const st=t.dataset.st,upd={status:st};
-    if(st==="paid"){upd.paidAt=new Date().toISOString();const miss=(b.slots||[]).filter(s=>!(b.coachBySlot||{})[s]);if(miss.length)upd.coachBySlot={...(b.coachBySlot||{}),...autoAssign(miss,b.coachPref,b.id)}}
+    if(st==="paid"){upd.paidAt=new Date().toISOString();const miss=(b.slots||[]).filter(s=>!cOf((b.coachBySlot||{})[s]));if(miss.length)upd.coachBySlot={...(b.coachBySlot||{}),...autoAssign(miss,b.coachPref,b.ptype,b.id)}}
     t.disabled=true;await safe(()=>updateBooking(b.id,upd),st==="paid"?"Confirmed ✔ — send the parent a WhatsApp message":"Updated");return}
   if(t.dataset.del){if(t.dataset.sure)await safe(()=>deleteBooking(t.dataset.del),"Deleted");else{t.dataset.sure="1";t.textContent="Sure? Tap again"}}
 });
@@ -494,9 +519,9 @@ $("v-admin").addEventListener("change",async e=>{
   const as=e.target.closest("[data-addslot]");
   if(as&&as.value){const b=S.bookings.find(x=>x.id===as.dataset.addslot);if(!b)return;const sid=as.value;
     if(!b.start&&false)return;
-    await safe(()=>updateBooking(b.id,{slots:[...(b.slots||[]),sid],coachBySlot:{...(b.coachBySlot||{}),...autoAssign([sid],b.coachPref,b.id)}}),"Slot added ✔");return}
+    await safe(()=>updateBooking(b.id,{slots:[...(b.slots||[]),sid],coachBySlot:{...(b.coachBySlot||{}),...autoAssign([sid],b.coachPref,b.ptype,b.id)}}),"Slot added ✔");return}
   const s=e.target.closest("[data-coach]");if(!s)return;const b=S.bookings.find(x=>x.id===s.dataset.coach);if(!b)return;
-  await safe(()=>updateBooking(b.id,{coachBySlot:{...(b.coachBySlot||{}),[s.dataset.s]:s.value}}),"Coach assigned")});
+  await safe(()=>updateBooking(b.id,{coachBySlot:{...(b.coachBySlot||{}),[s.dataset.s]:(b.ptype==="group"?"g:":"")+s.value}}),"Coach assigned")});
 
 /* ---------- admin: schedule ---------- */
 function renderSched(){
@@ -504,8 +529,8 @@ function renderSched(){
   $("v-sched").innerHTML=`<div class="card"><h2>Weekly schedule</h2>
     <div class="seg"><button class="${S.schedCoach==="all"?"on":""}" data-sc="all">All</button>${S.settings.coaches.map(c=>`<button class="${S.schedCoach===c.id?"on":""}" data-sc="${c.id}">${esc(c.name)}</button>`).join("")}</div>
     ${Object.keys(byDay).map(d=>`<div class="day">${DAYS[d]}</div>${byDay[d].map(s=>{
-      let kids=S.bookings.filter(b=>isActive(b)&&(b.slots||[]).includes(s.id));if(S.schedCoach!=="all")kids=kids.filter(b=>(b.coachBySlot||{})[s.id]===S.schedCoach);
-      return `<div class="sched-slot"><div class="t">${fmtTime(s.time)} <span class="muted">• ${slotUse(s.id)}/${slotCap()}</span></div>${kids.length?kids.map(b=>{const c=coachById((b.coachBySlot||{})[s.id]);return `<span class="pill ${c?"":"nocoach"}">${esc(b.childName)} ← ${esc(c?.name||"no coach")}${b.status==="pending"?" ⏳":""}</span>`}).join(""):`<span class="muted">Empty</span>`}</div>`}).join("")}`).join("")||`<div class="empty">No slots. Add them in Settings.</div>`}
+      let kids=S.bookings.filter(b=>isActive(b)&&(b.slots||[]).includes(s.id));if(S.schedCoach!=="all")kids=kids.filter(b=>cOf((b.coachBySlot||{})[s.id])===S.schedCoach);
+      return `<div class="sched-slot"><div class="t">${fmtTime(s.time)} <span class="muted">• ${slotUse(s.id)}/${slotCap()}</span></div>${kids.length?kids.map(b=>{const c=coachById(cOf((b.coachBySlot||{})[s.id]));return `<span class="pill ${c?"":"nocoach"}">${esc(b.childName)} ← ${esc(c?.name||"no coach")}${b.status==="pending"?" ⏳":""}</span>`}).join(""):`<span class="muted">Empty</span>`}</div>`}).join("")}`).join("")||`<div class="empty">No slots. Add them in Settings.</div>`}
     <p class="muted">⏳ = payment not confirmed yet.</p></div>`;
 }
 $("v-sched").addEventListener("click",e=>{const t=e.target.closest("[data-sc]");if(t){S.schedCoach=t.dataset.sc;renderSched()}});
@@ -527,7 +552,7 @@ function renderSettings(){
       <label>InstaPay payment link (optional)</label><input id="st-link" dir="ltr" placeholder="https://ipn.eg/S/..." value="${esc(st.payLink)}"></div>
     <div class="card"><h2>Coaches</h2><div id="st-coaches">${st.coaches.map(c=>`<div class="tbl-row" data-c="${c.id}"><input value="${esc(c.name)}" data-k="name"><select data-k="gender" style="flex:0 0 95px"><option value="m" ${c.gender==="m"?"selected":""}>Coach (m)</option><option value="f" ${c.gender==="f"?"selected":""}>Coach (f)</option></select><button class="x" data-rmc="${c.id}">×</button></div>`).join("")}</div>
       <button class="btn sm ghost" data-act="addCoach">+ Coach</button></div>
-    <div class="card"><h2>Packages & prices</h2><p class="muted">Name • classes • price (EGP)</p><div id="st-pkgs">${st.packages.map(p=>`<div class="tbl-row" data-p="${p.id}"><input value="${esc(p.label)}" data-k="label"><input type="number" style="flex:0 0 64px" value="${p.sessions}" data-k="sessions"><input type="number" style="flex:0 0 88px" value="${p.price}" data-k="price"><button class="x" data-rmp="${p.id}">×</button></div>`).join("")}</div>
+    <div class="card"><h2>Packages & prices</h2><p class="muted">Type • name • sessions • price (EGP). “Private for 2” = total for both; “Small group” = per swimmer.</p><div id="st-pkgs">${st.packages.map(p=>`<div class="tbl-row" data-p="${p.id}" style="flex-wrap:wrap"><select data-k="type" style="flex:1 1 100%">${Object.keys(TYPES).map(k=>`<option value="${k}" ${typeOfPkg(p)===k?"selected":""}>${TYPES[k].name}</option>`).join("")}</select><input value="${esc(p.label)}" data-k="label"><input type="number" style="flex:0 0 64px" value="${p.sessions}" data-k="sessions"><input type="number" style="flex:0 0 88px" value="${p.price}" data-k="price"><button class="x" data-rmp="${p.id}">×</button></div>`).join("")}</div>
       <button class="btn sm ghost" data-act="addPkg">+ Package</button></div>
     <div class="actions"><button class="btn block" data-act="saveSettings">Save settings</button></div>
     <div class="card"><h2>Bookable slots</h2>
@@ -539,13 +564,13 @@ function renderSettings(){
 function readSettings(){const st=structuredClone(S.settings),v=id=>$(id).value.trim();
   Object.assign(st,{name:v("st-name"),location:v("st-loc"),phone:v("st-phone"),instagram:v("st-ig"),about:v("st-about"),ipa:v("st-ipa"),payLink:v("st-link"),sessionMinutes:+v("st-min")||45,perCoach:Math.max(1,+v("st-per")||1)});
   st.coaches=[...document.querySelectorAll("#st-coaches [data-c]")].map(r=>({id:r.dataset.c,name:r.querySelector("[data-k=name]").value.trim()||"Coach",gender:r.querySelector("[data-k=gender]").value}));
-  st.packages=[...document.querySelectorAll("#st-pkgs [data-p]")].map(r=>({id:r.dataset.p,label:r.querySelector("[data-k=label]").value.trim()||"Package",sessions:Math.max(1,+r.querySelector("[data-k=sessions]").value||1),price:Math.max(0,+r.querySelector("[data-k=price]").value||0)}));
-  return st}
+  st.packages=[...document.querySelectorAll("#st-pkgs [data-p]")].map(r=>({id:r.dataset.p,type:r.querySelector("[data-k=type]").value,label:r.querySelector("[data-k=label]").value.trim()||"Package",sessions:Math.max(1,+r.querySelector("[data-k=sessions]").value||1),price:Math.max(0,+r.querySelector("[data-k=price]").value||0)}));
+  st.pkgVersion=2;return st}
 function reSettings(){document.activeElement?.blur?.();renderSettings()}
 $("v-settings").addEventListener("click",async e=>{
   const t=e.target.closest("button");if(!t)return;const a=t.dataset.act;
   if(a==="addCoach"){S.settings=readSettings();S.settings.coaches.push({id:"c"+rid().slice(0,6),name:"",gender:"m"});return reSettings()}
-  if(a==="addPkg"){S.settings=readSettings();S.settings.packages.push({id:"p"+rid().slice(0,6),label:"",sessions:4,price:0});return reSettings()}
+  if(a==="addPkg"){S.settings=readSettings();S.settings.packages.push({id:"p"+rid().slice(0,6),type:"p1",label:"",sessions:4,price:0});return reSettings()}
   if(t.dataset.rmc){S.settings=readSettings();if(S.settings.coaches.length<=1)return toast("Keep at least one coach");S.settings.coaches=S.settings.coaches.filter(c=>c.id!==t.dataset.rmc);reSettings();return toast("Press “Save” to keep this")}
   if(t.dataset.rmp){S.settings=readSettings();if(S.settings.packages.length<=1)return toast("Keep at least one package");S.settings.packages=S.settings.packages.filter(p=>p.id!==t.dataset.rmp);reSettings();return toast("Press “Save” to keep this")}
   if(a==="saveSettings"){const st=readSettings();t.disabled=true;if(await safe(()=>saveSettings(st),"Saved ✔"))S.settings=st;t.disabled=false;return reSettings()}
