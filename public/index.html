@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bubbles Swim Academy — Book a swim class</title>
+<meta name="description" content="Book swimming classes for all ages with Bubbles Swim Academy">
+<meta name="theme-color" content="#0a4d68">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-512.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Bubbles">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --deep:#0a4d68; --sea:#088395; --aqua:#18b6d6; --foam:#eaf9fc; --sun:#ffc93c; --coral:#ff7a59;
+  --ink:#10303c; --muted:#5f7b86; --line:#d3e9ef; --ok:#169b62; --warn:#c77700; --bad:#d04040; --r:18px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--foam);color:var(--ink);font-family:"Baloo Bhaijaan 2",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+button,input,select,textarea{font-family:inherit;font-size:16px}
+.wrap{max-width:560px;margin:0 auto;padding:0 16px}
+header.top{background:linear-gradient(165deg,var(--deep),var(--sea) 60%,var(--aqua));color:#fff;padding:calc(16px + env(safe-area-inset-top)) 0 38px;position:relative;overflow:hidden}
+header.top .brand{display:flex;align-items:center;gap:12px;position:relative;z-index:1}
+header.top .logo{width:58px;height:58px;flex:0 0 58px}
+header.top h1{margin:0;font-size:23px;font-weight:800;line-height:1.1;letter-spacing:.2px}
+header.top p{margin:2px 0 0;opacity:.9;font-size:14px}
+.bub{position:absolute;border-radius:50%;background:rgba(255,255,255,.14);border:1.5px solid rgba(255,255,255,.25);animation:rise 9s linear infinite}
+@keyframes rise{from{transform:translateY(40px);opacity:0}15%{opacity:1}to{transform:translateY(-140px);opacity:0}}
+header.top svg.waves{position:absolute;bottom:-1px;left:0;width:100%;height:30px}
+.badge-mode{display:inline-block;margin-top:8px;font-size:12px;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:99px;position:relative;z-index:1}
+.ig{display:inline-flex;align-items:center;gap:6px;margin-top:8px;margin-inline-start:6px;font-size:13px;color:#fff;text-decoration:none;background:rgba(255,255,255,.16);padding:3px 10px;border-radius:99px;position:relative;z-index:1}
+.card{background:#fff;border-radius:var(--r);padding:16px;margin:14px 0;box-shadow:0 1px 0 var(--line),0 8px 22px rgba(10,77,104,.07)}
+.card h2{margin:0 0 10px;font-size:19px;color:var(--deep)}
+.card h3{margin:14px 0 8px;font-size:16px}
+.muted{color:var(--muted);font-size:14px}
+label{display:block;font-size:15px;font-weight:600;margin:10px 0 4px}
+input,select,textarea{width:100%;padding:11px 12px;border:1.5px solid var(--line);border-radius:14px;background:#fff;color:var(--ink)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--aqua);box-shadow:0 0 0 3px rgba(24,182,214,.15)}
+.row{display:flex;gap:10px}.row>*{flex:1}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:14px;padding:12px 16px;font-weight:700;cursor:pointer;background:var(--sea);color:#fff;text-decoration:none;font-size:16px}
+.btn.block{width:100%}
+.btn.sun{background:var(--sun);color:var(--deep)}
+.btn.ghost{background:transparent;color:var(--sea);border:1.5px solid var(--line)}
+.btn.ok{background:var(--ok)}.btn.bad{background:#fff;color:var(--bad);border:1.5px solid #f3caca}
+.btn.sm{padding:7px 11px;font-size:14px;border-radius:11px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1.5px solid var(--line);background:#fff;border-radius:14px;padding:8px 12px;cursor:pointer;font-weight:600;font-size:15px;color:var(--ink)}
+.chip.on{border-color:var(--sea);background:var(--sea);color:#fff}
+.pkg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pkg .chip{text-align:left;padding:12px}
+.pkg .chip b{display:block;font-size:16px}.pkg .chip span{font-size:13px;opacity:.85}
+.day{margin:12px 0 4px;font-weight:700;color:var(--deep)}
+.slot{min-width:92px;text-align:center}
+.slot small{display:block;font-weight:400;font-size:12px;opacity:.8}
+.slot.full{opacity:.4;cursor:not-allowed;text-decoration:line-through}
+.steps{display:flex;gap:6px;margin:0 0 6px}
+.steps i{flex:1;height:6px;border-radius:9px;background:var(--line)}
+.steps i.on{background:linear-gradient(90deg,var(--aqua),var(--sun))}
+.sum{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:15px}
+.sum:last-child{border:0}
+.total{font-size:23px;font-weight:800;color:var(--deep)}
+.pay{background:#fff8e6;border:1.5px dashed #f1d38a;border-radius:16px;padding:14px;margin-top:12px}
+.ipa{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#fff;border-radius:12px;padding:10px 12px;margin:8px 0;font-weight:700;direction:ltr}
+.status{display:inline-block;font-size:12px;font-weight:700;padding:2px 10px;border-radius:99px;white-space:nowrap}
+.s-pending{background:#fff1dc;color:var(--warn)}.s-paid{background:#dcf5ea;color:var(--ok)}
+.s-cancelled{background:#fbe3e3;color:var(--bad)}.s-done{background:#e6eef1;color:var(--muted)}
+.bk{border:1.5px solid var(--line);border-radius:16px;padding:12px;margin:10px 0}
+.bk .hd{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.bk .hd b{font-size:17px}
+.kv{font-size:14px;margin:3px 0}.kv span{color:var(--muted)}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:#fff;border-radius:16px;padding:12px;box-shadow:0 1px 0 var(--line)}
+.stat b{display:block;font-size:21px;color:var(--deep)}.stat span{font-size:13px;color:var(--muted)}
+.tabsbar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom));display:flex;justify-content:center;z-index:5}
+.tabsbar .in{display:flex;max-width:560px;width:100%}
+.tab{flex:1;border:0;background:none;padding:6px 2px;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px}
+.tab svg{width:22px;height:22px}
+.tab.on{color:var(--sea)}
+.seg{display:flex;background:#eef6f8;border-radius:14px;padding:4px;gap:4px;margin-bottom:8px;overflow-x:auto}
+.seg button{flex:1;border:0;background:none;padding:8px;border-radius:10px;font-weight:700;color:var(--muted);cursor:pointer;font-size:14px;white-space:nowrap}
+.seg button.on{background:#fff;color:var(--sea);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.sched-slot{border-left:4px solid var(--aqua);background:#f5fbfd;border-radius:12px;padding:8px 10px;margin:6px 0}
+.sched-slot .t{font-weight:700}
+.pill{display:inline-block;background:#fff;border:1px solid var(--line);border-radius:99px;padding:1px 9px;font-size:13px;margin:3px 0 0 4px}
+.pill.nocoach{border-color:#f0c37a;background:#fff7e8}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(96px + env(safe-area-inset-bottom));background:var(--deep);color:#fff;padding:10px 16px;border-radius:14px;font-weight:600;opacity:0;transition:.25s;pointer-events:none;z-index:9;max-width:90%;text-align:center}
+.toast.show{opacity:1}
+.empty{text-align:center;color:var(--muted);padding:18px 6px}
+.note{font-size:14px;background:#eef8fb;border-radius:12px;padding:10px;color:var(--deep);margin-top:10px}
+.note.warn{background:#fff7e8;color:#7a4a00}
+.hide{display:none!important}
+.done-box{text-align:center;padding:10px 0}
+.done-box .big{font-size:48px}
+.tbl-row{display:flex;gap:8px;align-items:center;margin:6px 0}
+.tbl-row input,.tbl-row select{padding:8px}
+.x{border:0;background:#fbe3e3;color:var(--bad);border-radius:10px;width:34px;height:34px;cursor:pointer;flex:0 0 34px;font-size:18px}
+.hero{display:flex;gap:12px;align-items:center}
+.intro h2{font-size:22px;margin-bottom:6px}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0}
+.tile{background:var(--foam);border-radius:14px;padding:10px 6px;text-align:center;font-weight:700;font-size:14px}
+.tile span{display:block;font-size:26px;line-height:1.2}
+.facts{list-style:none;padding:0;margin:8px 0}.facts li{padding:4px 0;font-size:15px}.facts li b{color:var(--deep)}
+.how{display:grid;gap:8px;margin-top:10px}
+.how div{display:flex;gap:10px;align-items:center;font-size:15px}
+.how i{font-style:normal;flex:0 0 28px;height:28px;border-radius:14px;background:var(--sun);color:var(--deep);font-weight:800;display:flex;align-items:center;justify-content:center}
+.wa{background:#169b62;font-size:18px;padding:16px}
+.step-note{background:#fff8e6;border:1.5px dashed #f1d38a;border-radius:14px;padding:12px;margin:12px 0;font-size:15px}
+.hero .t{flex:1}
+.hero h2{margin:0}
+</style>
+</head>
+<body>
+<header class="top">
+  <span class="bub" style="width:18px;height:18px;left:12%;bottom:0;animation-delay:0s"></span>
+  <span class="bub" style="width:10px;height:10px;left:28%;bottom:0;animation-delay:2.5s"></span>
+  <span class="bub" style="width:24px;height:24px;left:70%;bottom:0;animation-delay:1.2s"></span>
+  <span class="bub" style="width:12px;height:12px;left:85%;bottom:0;animation-delay:4s"></span>
+  <div class="wrap">
+    <div class="brand">
+      <img class="logo" src="icon-192.png" alt="" style="border-radius:50%;background:#fff">
+      <div><h1 id="appName">Bubbles Swim Academy</h1><p id="appLoc">Swimming for every age</p></div>
+    </div>
+    <span class="badge-mode" id="modeBadge">Loading…</span><a class="ig hide" id="igLink" target="_blank" rel="noopener">📷 Follow us on Instagram</a>
+  </div>
+  <svg class="waves" viewBox="0 0 1200 40" preserveAspectRatio="none"><path d="M0,20 C150,40 350,0 600,18 C850,36 1050,4 1200,20 L1200,40 L0,40 Z" fill="#eaf9fc"/></svg>
+</header>
+
+<main class="wrap">
+  <section id="v-book"></section>
+  <section id="v-mine" class="hide"></section>
+  <section id="v-login" class="hide"></section>
+  <section id="v-admin" class="hide"></section>
+  <section id="v-sched" class="hide"></section>
+  <section id="v-settings" class="hide"></section>
+</main>
+
+<nav class="tabsbar"><div class="in" id="tabs"></div></nav>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+/* =====================================================================
+   1) Firebase project settings
+   ===================================================================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyCHNQoDClk14wkAkri-Pr6VQXXQ8dm4nds",
+  authDomain: "bubbles-swim.firebaseapp.com",
+  projectId: "bubbles-swim",
+  storageBucket: "bubbles-swim.firebasestorage.app",
+  messagingSenderId: "249314881205",
+  appId: "1:249314881205:web:fa48f6ef48d8ff17ed58fc"
+};
+/* ===================================================================== */
+
+const FB = "https://www.gstatic.com/firebasejs/10.12.2/";
+const DAYS = ["Saturday","Sunday","Monday","Tuesday","Wednesday","Thursday","Friday"]; // 0 = Saturday
+const DEFAULT_SETTINGS = {
+  name:"Bubbles Swim Academy", location:"",
+  ipa:"", payLink:"", phone:"01014713391", instagram:"",
+  perCoach:1, sessionMinutes:45,
+  about:"Swimming lessons for every age — from baby swimming to adults. Patient, small classes that build water confidence, safety and real technique at your own pace.",
+  coaches:[{id:"c1",name:"Coach Ahmed",gender:"m"},{id:"c2",name:"Assistant Coach",gender:"f"}],
+  packages:[
+    {id:"p1",label:"Single class",sessions:1,price:400},
+    {id:"p4",label:"4-class package",sessions:4,price:1400},
+    {id:"p8",label:"8-class package",sessions:8,price:2600},
+    {id:"p12",label:"12-class package",sessions:12,price:3600}
+  ]
+};
+const DEFAULT_SLOTS = [[0,"09:00"],[0,"10:00"],[0,"11:00"],[6,"09:00"],[6,"10:00"],[6,"11:00"],[1,"17:00"],[1,"18:00"],[3,"17:00"],[3,"18:00"]]
+  .map(([d,t])=>({id:"s"+d+t.replace(":",""),day:d,time:t,active:true}));
+
+const S = { settings:structuredClone(DEFAULT_SETTINGS), slots:[], holds:[], bookings:[], mine:{},
+  mode:"loading", fs:null, F:null, auth:null, A:null, admin:null, tab:"book", adminFilter:"pending", schedCoach:"all",
+  form:{step:1, child:{}, pkg:null, perWeek:1, slots:[], coachPref:"any", start:"", payer:"", ref:"", mode:"slots", pref:""}, lastBooking:null };
+
+/* ---------- helpers ---------- */
+const $=id=>document.getElementById(id);
+function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove("show"),2800)}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function money(n){return Number(n||0).toLocaleString("en-US")+" EGP"}
+function rid(){return Math.random().toString(36).slice(2,10)+Date.now().toString(36)}
+const slotById=id=>S.slots.find(s=>s.id===id);
+const coachById=id=>S.settings.coaches.find(c=>c.id===id);
+function fmtTime(t){if(!t)return"";let [h,m]=t.split(":").map(Number);return `${((h+11)%12)+1}:${String(m).padStart(2,"0")} ${h>=12?"PM":"AM"}`}
+function slotLabel(id){const s=slotById(id);return s?`${DAYS[s.day]} ${fmtTime(s.time)}`:"Removed slot"}
+const isActive=x=>x.status==="pending"||x.status==="paid";
+const slotCap=()=>S.settings.coaches.length*Number(S.settings.perCoach||1);
+const slotUse=sid=>S.holds.filter(h=>isActive(h)&&(h.slots||[]).includes(sid)).length;
+const coachLoad=(cid,sid,except)=>S.holds.filter(h=>isActive(h)&&h.id!==except&&(h.coachBySlot||{})[sid]===cid).length;
+const coachFree=(cid,sid,except)=>coachLoad(cid,sid,except)<Number(S.settings.perCoach||1);
+const pkgOf=id=>S.settings.packages.find(p=>p.id===id)||S.settings.packages[0];
+function todayISO(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)}
+function fmtDate(d){return d.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"})}
+function sessionDates(b){
+  if(!b.start)return[];
+  const days=(b.slots||[]).map(slotById).filter(Boolean).map(s=>({js:(s.day+6)%7,id:s.id}));
+  if(!days.length)return[];
+  const out=[],d=new Date(b.start+"T12:00:00");let g=0;
+  while(out.length<b.sessions&&g<500){for(const h of days.filter(x=>x.js===d.getDay()))if(out.length<b.sessions)out.push({date:new Date(d),slot:h.id});d.setDate(d.getDate()+1);g++}
+  return out;
+}
+function autoAssign(slots,pref,except){const o={};for(const s of slots){const c=[...S.settings.coaches].sort((a,b)=>(b.id===pref)-(a.id===pref)||coachLoad(a.id,s,except)-coachLoad(b.id,s,except)).find(c=>coachFree(c.id,s,except));o[s]=c?c.id:""}return o}
+function myIds(){try{return JSON.parse(localStorage.getItem("bubbles_my")||"[]")}catch(e){return[]}}
+function saveMyId(id){try{const a=myIds();a.unshift(id);localStorage.setItem("bubbles_my",JSON.stringify(a.slice(0,30)))}catch(e){}}
+function waNum(p){return "2"+String(p||"").replace(/\D/g,"")}
+
+/* ---------- data layer ---------- */
+const configured=!String(firebaseConfig.apiKey).startsWith("PASTE");
+async function init(){
+  if(!configured){startDemo();return}
+  try{
+    const [{initializeApp},F,A]=await Promise.all([import(FB+"firebase-app.js"),import(FB+"firebase-firestore.js"),import(FB+"firebase-auth.js")]);
+    const app=initializeApp(firebaseConfig);S.F=F;S.A=A;S.fs=F.getFirestore(app);S.auth=A.getAuth(app);S.mode="live";
+    const slow=setTimeout(()=>{if(!S._loaded)toast("Slow connection… loading data")},10000);
+    F.onSnapshot(F.doc(S.fs,"settings","main"),s=>{S._loaded=true;clearTimeout(slow);if(s.exists())S.settings={...structuredClone(DEFAULT_SETTINGS),...s.data()};render()},e=>console.warn(e));
+    F.onSnapshot(F.collection(S.fs,"slots"),q=>{S.slots=q.docs.map(d=>({id:d.id,...d.data()}));render()},e=>console.warn(e));
+    F.onSnapshot(F.collection(S.fs,"holds"),q=>{S.holds=q.docs.map(d=>({id:d.id,...d.data()}));render()},e=>console.warn(e));
+    for(const id of myIds())watchMine(id);
+    A.onAuthStateChanged(S.auth,u=>{S.admin=u||null;
+      if(S._unBk){S._unBk();S._unBk=null}
+      if(u){S._unBk=F.onSnapshot(F.collection(S.fs,"bookings"),q=>{S.bookings=q.docs.map(d=>({id:d.id,...d.data()}));render()},e=>{toast("This account is not an admin");});
+        if(S.tab==="login")S.tab="admin"}
+      else{S.bookings=[];if(["admin","sched","settings"].includes(S.tab))S.tab="login"}
+      render()});
+  }catch(e){console.error(e);startDemo();toast("Can't reach the database")}
+  render();
+}
+function watchMine(id){S.F.onSnapshot(S.F.doc(S.fs,"bookings",id),s=>{if(s.exists()){S.mine[id]={id,...s.data()};render()}},()=>{})}
+function startDemo(){S.mode="demo";S.slots=structuredClone(DEFAULT_SLOTS);S.admin={email:"demo"};render()}
+
+async function createBooking(b){
+  const hold={slots:b.slots,status:"pending",coachBySlot:b.coachBySlot};
+  if(S.mode==="demo"){const id=rid();S.bookings.push({id,...b});S.holds.push({id,...hold});S.mine[id]={id,...b};return id}
+  const F=S.F,ref=F.doc(F.collection(S.fs,"bookings")),batch=F.writeBatch(S.fs);
+  batch.set(ref,b);batch.set(F.doc(S.fs,"holds",ref.id),hold);await batch.commit();
+  saveMyId(ref.id);watchMine(ref.id);return ref.id;
+}
+async function updateBooking(id,upd){ // keeps the public "hold" in step with the private booking
+  const holdUpd={};if("status" in upd)holdUpd.status=upd.status;if("coachBySlot" in upd)holdUpd.coachBySlot=upd.coachBySlot;if("slots" in upd)holdUpd.slots=upd.slots;
+  if(S.mode==="demo"){const b=S.bookings.find(x=>x.id===id);Object.assign(b,upd);const h=S.holds.find(x=>x.id===id);if(h)Object.assign(h,holdUpd);if(S.mine[id])Object.assign(S.mine[id],upd);render();return}
+  const F=S.F,batch=F.writeBatch(S.fs);batch.update(F.doc(S.fs,"bookings",id),upd);if(Object.keys(holdUpd).length)batch.update(F.doc(S.fs,"holds",id),holdUpd);await batch.commit();
+}
+async function deleteBooking(id){
+  if(S.mode==="demo"){S.bookings=S.bookings.filter(x=>x.id!==id);S.holds=S.holds.filter(x=>x.id!==id);render();return}
+  const F=S.F,batch=F.writeBatch(S.fs);batch.delete(F.doc(S.fs,"bookings",id));batch.delete(F.doc(S.fs,"holds",id));await batch.commit();
+}
+async function saveSettings(st){if(S.mode==="demo"){S.settings=st;render();return}await S.F.setDoc(S.F.doc(S.fs,"settings","main"),st)}
+async function saveSlot(s){const {id,...d}=s;if(S.mode==="demo"){const i=S.slots.findIndex(x=>x.id===id);i>=0?S.slots[i]=s:S.slots.push(s);render();return}await S.F.setDoc(S.F.doc(S.fs,"slots",id),d)}
+async function deleteSlot(id){if(S.mode==="demo"){S.slots=S.slots.filter(x=>x.id!==id);render();return}await S.F.deleteDoc(S.F.doc(S.fs,"slots",id))}
+async function safe(fn,okMsg){try{await fn();if(okMsg)toast(okMsg);return true}catch(e){console.error(e);toast(e?.code==="permission-denied"?"Not allowed — please sign in as admin":"Something went wrong, try again");return false}}
+
+/* ---------- shell ---------- */
+const ICONS={
+  book:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18M12 14v4M10 16h4"/></svg>',
+  mine:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="9" r="5"/><circle cx="17" cy="15" r="3.5"/><circle cx="8" cy="19" r="2"/></svg>',
+  admin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+  sched:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  settings:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>',
+  login:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>'
+};
+function wantsAdmin(){return location.hash==="#admin"}
+window.addEventListener("hashchange",()=>{if(wantsAdmin()){S.tab=S.admin?"admin":"login";render()}});
+function render(){
+  const st=S.settings;
+  $("appName").textContent=st.name||"Bubbles Swim Academy";$("appLoc").textContent=st.location||"Swimming for every age";
+  $("modeBadge").textContent=S.mode==="loading"?"Loading…":S.mode==="demo"?"Demo — not connected to the database":S.admin?"Signed in as coach ✔":"Book your class in 2 minutes 🫧";
+  const ig=$("igLink");const h=(st.instagram||"").replace(/^@/,"").replace(/^https?:\/\/(www\.)?instagram\.com\//,"").replace(/\/.*$/,"");
+  if(h){ig.href="https://instagram.com/"+encodeURIComponent(h);ig.classList.remove("hide")}else ig.classList.add("hide");
+  const tabs=[["book","Book"],["mine","My bookings"]];
+  if(S.admin)tabs.push(["admin","Bookings"],["sched","Schedule"],["settings","Settings"]);
+  else if(wantsAdmin()||S.tab==="login")tabs.push(["login","Coach login"]);
+  if(S.tab==="book"&&wantsAdmin()&&!S._hashed){S._hashed=1;S.tab=S.admin?"admin":"login"}
+  if(!tabs.find(t=>t[0]===S.tab))S.tab="book";
+  $("tabs").innerHTML=tabs.map(([k,l])=>`<button class="tab ${S.tab===k?"on":""}" data-tab="${k}">${ICONS[k]}${l}</button>`).join("");
+  for(const k of ["book","mine","login","admin","sched","settings"])$("v-"+k).classList.toggle("hide",S.tab!==k);
+  ({book:renderBook,mine:renderMine,login:renderLogin,admin:renderAdmin,sched:renderSched,settings:renderSettings})[S.tab]();
+}
+$("tabs").addEventListener("click",e=>{const b=e.target.closest("[data-tab]");if(b){S.tab=b.dataset.tab;render();scrollTo(0,0)}});
+
+/* ---------- booking flow ---------- */
+function renderBook(){
+  const el=$("v-book"),f=S.form,st=S.settings;
+  if(document.activeElement&&el.contains(document.activeElement)&&f.step!==3)return; // don't wipe what a parent is typing
+  const steps=`<div class="steps">${[1,2,3,4].map(i=>`<i class="${f.step>=i?"on":""}"></i>`).join("")}</div>`;
+  if(f.step===5&&S.lastBooking){const b=S.lastBooking,req=!!b.preferredTimes;
+    el.innerHTML=`<div class="card done-box"><div class="big">🫧🏊</div><h2>Almost done — one last step!</h2>
+      <p class="muted">Your ${req?"request":"booking"} for <b>${esc(b.childName)}</b> is saved. <b>Send it to the coach on WhatsApp</b> so we can ${req?"arrange a time that suits you":"verify your payment and confirm your place"}.</p>
+      ${st.phone?`<a class="btn wa block" href="https://wa.me/${waNum(st.phone)}?text=${encodeURIComponent(bookingMsg(b))}" target="_blank" rel="noopener">📲 Send to coach on WhatsApp</a>`:""}
+      <div class="step-note">The message is ready — just tap <b>Send</b> in WhatsApp.</div>
+      <div class="sum"><span>Amount</span><b>${money(b.amount)}</b></div>
+      <div class="sum"><span>Status</span><span class="status s-pending">${req?"Time requested":"Awaiting payment check"}</span></div>
+      <div class="actions"><button class="btn ghost block" data-act="toMine">View my bookings</button><button class="btn ghost block" data-act="newBk">New booking</button></div></div>`;return}
+  if(f.step===1){const c=f.child;
+    const per=Number(st.perCoach||1),minPrice=Math.min(...st.packages.map(p=>Math.round(p.price/Math.max(1,p.sessions))));
+    el.innerHTML=`<div class="card intro"><h2>Learn to swim with confidence 🫧</h2>
+      ${st.about?`<p class="muted" style="margin:0">${esc(st.about)}</p>`:""}
+      <div class="tiles"><div class="tile"><span>👶</span>Babies</div><div class="tile"><span>🧒</span>Kids</div><div class="tile"><span>🧑</span>Adults</div></div>
+      <ul class="facts">
+        <li>✅ <b>${per===1?"Private 1-to-1 classes":`Small groups — up to ${per} per coach`}</b></li>
+        <li>✅ Coaches: <b>${st.coaches.map(c=>esc(c.name)).join(" & ")}</b></li>
+        ${isFinite(minPrice)&&minPrice>0?`<li>✅ From <b>${money(minPrice)}</b> per class</li>`:""}
+        <li>✅ ${st.sessionMinutes}-minute classes, all levels</li>
+      </ul>
+      <h3 style="margin-bottom:4px">How it works</h3>
+      <div class="how"><div><i>1</i>Choose a package and a time</div><div><i>2</i>Pay with InstaPay</div><div><i>3</i>Get confirmed on WhatsApp</div></div>
+    </div>
+    <div class="card">${steps}<div class="hero"><div class="t"><h2>Book a class</h2></div></div>
+      <h3>1. Swimmer details</h3>
+      <label>Swimmer's name</label><input id="f-child" value="${esc(c.childName)}" placeholder="e.g. Youssef" autocomplete="off">
+      <div class="row"><div><label>Age</label><input id="f-age" value="${esc(c.age)}" placeholder="e.g. 6 years"></div>
+      <div><label>Gender</label><select id="f-gender"><option value="m" ${c.gender!=="f"?"selected":""}>Male</option><option value="f" ${c.gender==="f"?"selected":""}>Female</option></select></div></div>
+      <label>Level</label><select id="f-level"><option value="">— Choose level —</option>${["Baby swimming","Beginner — first time","Can swim a little","Intermediate","Advanced / competitive"].map(x=>`<option ${c.level===x?"selected":""}>${x}</option>`).join("")}</select>
+      <label>Parent's name <span class="muted">(or yours if booking for yourself)</span></label><input id="f-parent" value="${esc(c.parentName)}" autocomplete="name">
+      <label>Mobile number (WhatsApp)</label><input id="f-phone" type="tel" inputmode="tel" dir="ltr" value="${esc(c.phone)}" placeholder="01xxxxxxxxx" autocomplete="tel">
+      <label>Notes (optional)</label><textarea id="f-notes" rows="2" placeholder="Anything the coach should know">${esc(c.notes)}</textarea>
+      <div class="actions"><button class="btn block" data-act="s1next">Next</button></div></div>`;return}
+  if(f.step===2){
+    el.innerHTML=`<div class="card">${steps}<h2>2. Choose a package</h2>
+      <div class="pkg">${st.packages.map(p=>`<button class="chip ${f.pkg===p.id?"on":""}" data-pkg="${p.id}"><b>${esc(p.label)}</b><span>${money(p.price)}${p.sessions>1?" • "+money(Math.round(p.price/p.sessions))+" / class":""}</span></button>`).join("")}</div>
+      <h3>How many times a week?</h3>
+      <div class="chips">${[1,2,3].map(n=>`<button class="chip ${f.perWeek===n?"on":""}" data-pw="${n}">${["Once","Twice","3 times"][n-1]}</button>`).join("")}</div>
+      <h3>Preferred coach</h3>
+      <div class="chips"><button class="chip ${f.coachPref==="any"?"on":""}" data-cp="any">Any available coach</button>${st.coaches.map(c=>`<button class="chip ${f.coachPref===c.id?"on":""}" data-cp="${c.id}">${esc(c.name)}</button>`).join("")}</div>
+      <div class="actions"><button class="btn ghost" data-act="back">Back</button><button class="btn" style="flex:1" data-act="s2next" ${f.pkg?"":"disabled"}>Next</button></div></div>`;return}
+  if(f.step===3){
+    const act=S.slots.filter(s=>s.active!==false).sort((a,b)=>a.day-b.day||a.time.localeCompare(b.time));
+    const byDay={};act.forEach(s=>(byDay[s.day]=byDay[s.day]||[]).push(s));
+    const cap=slotCap(),need=Math.min(f.perWeek,pkgOf(f.pkg).sessions);
+    const startVal=$("f-start")?.value||f.start||todayISO();
+    el.innerHTML=`<div class="card">${steps}<h2>3. Pick your times</h2>
+      <div class="seg"><button class="${f.mode==="slots"?"on":""}" data-mode="slots">Pick an open slot</button><button class="${f.mode==="custom"?"on":""}" data-mode="custom">Suggest my own time</button></div>
+      ${f.mode==="custom"?`<p class="muted">None of the open slots work for you? Write the days and times that suit you, and the coach will arrange a time and a coach for you on WhatsApp.</p>
+      <label>Times that suit you</label><textarea id="f-pref" rows="3" placeholder="e.g. Monday & Wednesday after 5 PM, or Saturday morning">${esc(f.pref)}</textarea>`:`<p class="muted">Pick <b>${need}</b> weekly ${need===1?"slot":"slots"} (${st.sessionMinutes}-minute classes). Your slot repeats every week until the package ends. No slot fits? Tap “Suggest my own time”.</p>
+      ${Object.keys(byDay).length?Object.keys(byDay).map(d=>`<div class="day">${DAYS[d]}</div><div class="chips">${byDay[d].map(s=>{
+        const left=cap-slotUse(s.id),on=f.slots.includes(s.id),full=left<=0&&!on,prefOk=f.coachPref==="any"||coachFree(f.coachPref,s.id);
+        return `<button class="chip slot ${on?"on":""} ${full?"full":""}" data-slot="${s.id}" ${full?"disabled":""}>${fmtTime(s.time)}<small>${full?"Full":left===1?"1 spot left":`${left} spots`}${!full&&!prefOk?" • other coach":""}</small></button>`}).join("")}</div>`).join(""):`<div class="empty">No open slots right now — tap “Suggest my own time”.</div>`}`}
+      <label>${f.mode==="custom"?"Preferred start date":"First class date"}</label><input id="f-start" type="date" value="${esc(startVal)}" min="${todayISO()}">
+      <div class="actions"><button class="btn ghost" data-act="back">Back</button><button class="btn" style="flex:1" data-act="s3next" ${f.mode==="custom"||f.slots.length===need?"":"disabled"}>${f.mode==="custom"?"Next":`Next (${f.slots.length}/${need})`}</button></div></div>`;return}
+  if(f.step===4){
+    const p=pkgOf(f.pkg),dates=sessionDates({slots:f.slots,start:f.start,sessions:p.sessions}),custom=f.mode==="custom";
+    el.innerHTML=`<div class="card">${steps}<h2>4. Review & pay</h2>
+      <div class="sum"><span>Swimmer</span><b>${esc(f.child.childName)} (${esc(f.child.age)})</b></div>
+      <div class="sum"><span>Package</span><b>${esc(p.label)}</b></div>
+      ${custom?`<div class="sum"><span>Requested times</span><b>${esc(f.pref)}</b></div><div class="sum"><span>Preferred start</span><b>${fmtDate(new Date(f.start+"T12:00:00"))}</b></div>`:`<div class="sum"><span>Times</span><b>${f.slots.map(slotLabel).join(", ")}</b></div>
+      <div class="sum"><span>First class</span><b>${dates[0]?fmtDate(dates[0].date):"-"}</b></div>
+      <div class="sum"><span>Last class</span><b>${dates.length?fmtDate(dates.at(-1).date):"-"}</b></div>`}
+      <div class="sum"><span>Total</span><span class="total">${money(p.price)}</span></div>
+      ${custom?`<div class="note">The coach will message you on WhatsApp to confirm a time that suits you. You'll pay after your time is confirmed.</div>`:`<div class="pay"><b>Pay with InstaPay 💳</b>
+        ${st.ipa?`<div class="ipa"><span>${esc(st.ipa)}</span><button class="btn sm ghost" data-act="copyIpa">Copy</button></div>`:`<p class="muted">The payment address will appear here once the coach adds it.</p>`}
+        ${st.payLink?`<a class="btn sun block" href="${esc(st.payLink)}" target="_blank" rel="noopener">Open InstaPay and pay ${money(p.price)}</a>`:""}
+        <p class="muted" style="margin:8px 0 0">Transfer the exact amount, then enter the sender's name and the transaction reference shown after the transfer.</p>
+        <label>Name on the sending account</label><input id="f-payer" value="${esc(f.payer)}">
+        <label>Transaction reference</label><input id="f-ref" dir="ltr" value="${esc(f.ref)}" placeholder="123456789012">
+      </div>`}
+      <div class="actions"><button class="btn ghost" data-act="back">Back</button><button class="btn ok" style="flex:1" data-act="submit">${custom?"Send request":"Confirm booking"}</button></div></div>`;
+  }
+}
+function readStep1(){const g=id=>$(id)?.value.trim()||"";S.form.child={childName:g("f-child"),age:g("f-age"),gender:g("f-gender"),level:g("f-level"),parentName:g("f-parent"),phone:g("f-phone").replace(/\s/g,""),notes:g("f-notes")}}
+function forceBook(){document.activeElement?.blur?.();renderBook()}
+$("v-book").addEventListener("click",async e=>{
+  const f=S.form,t=e.target.closest("button");if(!t)return;
+  if(t.dataset.pkg){f.pkg=t.dataset.pkg;f.slots=[];return forceBook()}
+  if(t.dataset.pw){f.perWeek=+t.dataset.pw;f.slots=[];return forceBook()}
+  if(t.dataset.cp){f.coachPref=t.dataset.cp;return forceBook()}
+  if(t.dataset.mode){f.start=$("f-start")?.value||f.start;if($("f-pref"))f.pref=$("f-pref").value;f.mode=t.dataset.mode;return forceBook()}
+  if(t.dataset.slot){const need=Math.min(f.perWeek,pkgOf(f.pkg).sessions);f.start=$("f-start")?.value||f.start;const i=f.slots.indexOf(t.dataset.slot);
+    if(i>=0)f.slots.splice(i,1);else{if(f.slots.length>=need)f.slots.shift();f.slots.push(t.dataset.slot)}return forceBook()}
+  const a=t.dataset.act;
+  if(a==="s1next"){readStep1();const c=f.child;
+    if(!c.childName||!c.age||!c.parentName)return toast("Enter the swimmer's name, age and your name");
+    if(!c.level)return toast("Choose the swimmer's level");
+    if(!/^01[0-9]{9}$/.test(c.phone))return toast("Mobile number must be 11 digits starting with 01");
+    f.step=2;forceBook();scrollTo(0,0)}
+  if(a==="s2next"){f.step=3;forceBook();scrollTo(0,0)}
+  if(a==="s3next"){f.start=$("f-start").value;if(!f.start)return toast("Choose a start date");
+    if(f.mode==="custom"){f.pref=($("f-pref")?.value||"").trim();if(f.pref.length<3)return toast("Write the days and times that suit you");f.slots=[]}
+    f.step=4;forceBook();scrollTo(0,0)}
+  if(a==="back"){if(f.step===4&&$("f-payer")){f.payer=$("f-payer").value;f.ref=$("f-ref").value}if(f.step===3){f.start=$("f-start").value;if($("f-pref"))f.pref=$("f-pref").value}f.step--;forceBook()}
+  if(a==="copyIpa"){try{await navigator.clipboard.writeText(S.settings.ipa);toast("Copied ✔")}catch(_){toast(S.settings.ipa)}}
+  if(a==="submit"){
+    const custom=f.mode==="custom";
+    if(!custom){f.payer=$("f-payer").value.trim();f.ref=$("f-ref").value.trim();
+      if(!f.payer||f.ref.length<4)return toast("Enter the sender's name and reference after transferring")}
+    else{f.payer="";f.ref=""}
+    for(const s of f.slots)if(slotUse(s)>=slotCap()){toast(slotLabel(s)+" was just taken — please pick another");f.slots=f.slots.filter(x=>x!==s);f.step=3;return forceBook()}
+    const p=pkgOf(f.pkg);
+    const b={...f.child,package:p.label,sessions:p.sessions,amount:p.price,perWeek:f.perWeek,slots:custom?[]:[...f.slots],preferredTimes:custom?f.pref.slice(0,300):"",start:f.start,coachPref:f.coachPref,
+      payer:f.payer.slice(0,80),ref:f.ref.slice(0,40),status:"pending",coachBySlot:autoAssign(f.slots,f.coachPref),createdAt:new Date().toISOString()};
+    t.disabled=true;
+    try{const id=await createBooking(b);S.lastBooking={id,...b};S.form={step:5,child:{},pkg:null,perWeek:1,slots:[],coachPref:"any",start:"",payer:"",ref:"",mode:"slots",pref:""};forceBook();scrollTo(0,0)}
+    catch(err){console.error(err);toast("Booking failed — please try again");t.disabled=false}
+  }
+  if(a==="toMine"){S.tab="mine";S.form.step=1;render()}
+  if(a==="newBk"){S.form.step=1;forceBook()}
+});
+
+/* ---------- booking cards ---------- */
+const STATUS={pending:["Awaiting payment check","s-pending"],paid:["Confirmed ✔","s-paid"],cancelled:["Cancelled","s-cancelled"],done:["Package finished","s-done"]};
+function bookingMsg(b){
+  const L=[`New ${b.preferredTimes?"time request":"booking"} — ${S.settings.name} 🫧`,`Swimmer: ${b.childName} (${b.age}) — ${b.level}`,`Parent: ${b.parentName} — ${b.phone}`,`Package: ${b.package} (${b.amount} EGP)`];
+  if(b.preferredTimes)L.push(`Requested times: ${b.preferredTimes}`);else L.push(`Times: ${(b.slots||[]).map(slotLabel).join(", ")}`);
+  L.push(`Start: ${b.start?fmtDate(new Date(b.start+"T12:00:00")):"-"}`);
+  L.push(b.ref?`Payment: InstaPay from ${b.payer}, ref ${b.ref}`:"Payment: after the time is confirmed");
+  if(b.notes)L.push(`Notes: ${b.notes}`);
+  L.push(`Booking ID: ${String(b.id||"").slice(0,6).toUpperCase()}`);
+  return L.join("\n");
+}
+function waMsg(b){const lines=(b.slots||[]).map(s=>`${slotLabel(s)} with ${coachById((b.coachBySlot||{})[s])?.name||"the coach"}`).join("\n"),d=sessionDates(b);
+  return b.status==="paid"?`Hi ${b.parentName} 👋\n${b.childName}'s booking at ${S.settings.name} (${b.package}) is confirmed ✅\nSchedule:\n${lines}\nFirst class: ${d[0]?fmtDate(d[0].date):""}${S.settings.location?"\nLocation: "+S.settings.location:""}`
+    :`Hi ${b.parentName} 👋\nAbout ${b.childName}'s booking (${b.package}) for ${b.amount} EGP`}
+function card(b,admin){
+  let [sl,sc]=STATUS[b.status]||STATUS.pending;if(b.status==="pending"&&b.preferredTimes&&!b.ref)sl="Time requested";const dates=sessionDates(b),now=new Date();now.setHours(0,0,0,0);const next=dates.find(x=>x.date>=now);
+  let h=`<div class="bk"><div class="hd"><b>${esc(b.childName)} <span class="muted">(${esc(b.age)})</span></b><span class="status ${sc}">${sl}</span></div>
+    <div class="kv"><span>Package:</span> ${esc(b.package)} • ${money(b.amount)}</div>
+    ${b.preferredTimes?`<div class="kv"><span>Requested times:</span> <b>${esc(b.preferredTimes)}</b></div>`:""}
+    <div class="kv"><span>Times:</span> ${(b.slots||[]).length?"":"to be arranged"}${(b.slots||[]).map(s=>`${slotLabel(s)} (${esc(coachById((b.coachBySlot||{})[s])?.name||"coach not assigned yet")})`).join(" • ")}</div>
+    <div class="kv"><span>From</span> ${dates[0]?fmtDate(dates[0].date):"-"} <span>to</span> ${dates.length?fmtDate(dates.at(-1).date):"-"}</div>
+    ${next&&isActive(b)?`<div class="kv"><span>Next class:</span> <b>${fmtDate(next.date)} ${fmtTime(slotById(next.slot)?.time)}</b></div>`:""}`;
+  if(admin){
+    h+=`<div class="kv"><span>Parent:</span> ${esc(b.parentName)} • <a href="https://wa.me/${waNum(b.phone)}" target="_blank" rel="noopener" dir="ltr">${esc(b.phone)}</a></div>
+      <div class="kv"><span>Level:</span> ${esc(b.level)} • ${b.gender==="f"?"Female":"Male"}${b.coachPref&&b.coachPref!=="any"?` • prefers ${esc(coachById(b.coachPref)?.name||"")}`:""}</div>
+      ${b.ref?`<div class="kv"><span>Transfer:</span> ${esc(b.payer)} • ref <b dir="ltr">${esc(b.ref)}</b></div>`:`<div class="kv"><span>Transfer:</span> not paid yet</div>`}
+      ${isActive(b)&&(b.slots||[]).length<Math.min(b.perWeek||1,3)?`<div class="tbl-row"><span style="flex:1;font-size:14px">Add a slot</span><select style="flex:1.3" data-addslot="${b.id}"><option value="">— choose a slot —</option>${S.slots.filter(s=>s.active!==false&&!(b.slots||[]).includes(s.id)).sort((x,y)=>x.day-y.day||x.time.localeCompare(y.time)).map(s=>`<option value="${s.id}" ${slotUse(s.id)>=slotCap()?"disabled":""}>${slotLabel(s.id)}${slotUse(s.id)>=slotCap()?" (full)":""}</option>`).join("")}</select></div>`:""}
+      ${b.notes?`<div class="kv"><span>Notes:</span> ${esc(b.notes)}</div>`:""}
+      ${(b.slots||[]).map(s=>`<div class="tbl-row"><span style="flex:1;font-size:14px">${slotLabel(s)}</span><select style="flex:1.3" data-coach="${b.id}" data-s="${s}"><option value="">— coach —</option>${S.settings.coaches.map(c=>{const cur=(b.coachBySlot||{})[s]===c.id,free=coachFree(c.id,s,b.id);return `<option value="${c.id}" ${cur?"selected":""} ${!free&&!cur?"disabled":""}>${esc(c.name)}${!free&&!cur?" (busy)":""}</option>`}).join("")}</select></div>`).join("")}
+      <div class="actions">
+        ${b.status==="pending"?`<button class="btn sm ok" data-st="paid" data-id="${b.id}">Confirm payment</button>`:""}
+        ${b.status==="paid"?`<button class="btn sm ghost" data-st="done" data-id="${b.id}">Package finished</button>`:""}
+        ${isActive(b)?`<button class="btn sm bad" data-st="cancelled" data-id="${b.id}">Cancel</button>`:`<button class="btn sm ghost" data-st="pending" data-id="${b.id}">Restore</button><button class="btn sm bad" data-del="${b.id}">Delete forever</button>`}
+        <a class="btn sm ghost" href="https://wa.me/${waNum(b.phone)}?text=${encodeURIComponent(waMsg(b))}" target="_blank" rel="noopener">WhatsApp message</a>
+      </div>`;
+  }
+  return h+"</div>";
+}
+function renderMine(){
+  const list=Object.values(S.mine).sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||""));
+  $("v-mine").innerHTML=`<div class="card"><h2>My bookings</h2>${list.length?list.map(b=>card(b,false)).join(""):`<div class="empty">No bookings on this device yet. Start from “Book” 🫧</div>`}
+    <p class="muted">Bookings show here on the same device you booked from.</p>
+    ${S.settings.phone?`<a class="btn ghost block" href="https://wa.me/${waNum(S.settings.phone)}" target="_blank" rel="noopener">WhatsApp the coach: <span dir="ltr">${esc(S.settings.phone)}</span></a>`:""}</div>`;
+}
+
+/* ---------- admin login ---------- */
+function renderLogin(){
+  $("v-login").innerHTML=`<div class="card"><h2>Coach login 🔒</h2><p class="muted">For coaches only.</p>
+    <label>Email</label><input id="lg-email" type="email" dir="ltr" autocomplete="username">
+    <label>Password</label><input id="lg-pass" type="password" dir="ltr" autocomplete="current-password">
+    <div class="actions"><button class="btn block" data-act="login">Sign in</button></div></div>`;
+}
+$("v-login").addEventListener("click",async e=>{const t=e.target.closest("[data-act=login]");if(!t)return;
+  if(S.mode!=="live")return toast("No database connected yet");
+  t.disabled=true;try{await S.A.signInWithEmailAndPassword(S.auth,$("lg-email").value.trim(),$("lg-pass").value);toast("Welcome, Coach 👋")}catch(err){toast("Wrong email or password")}t.disabled=false});
+
+/* ---------- admin: bookings ---------- */
+function renderAdmin(){
+  const B=S.bookings,m=new Date().toISOString().slice(0,7);
+  const paidMonth=B.filter(b=>(b.status==="paid"||b.status==="done")&&(b.paidAt||b.createdAt||"").startsWith(m)).reduce((a,b)=>a+Number(b.amount||0),0);
+  const pend=B.filter(b=>b.status==="pending"),act=S.slots.filter(s=>s.active!==false);
+  const total=act.length*slotCap(),used=act.reduce((a,s)=>a+Math.min(slotUse(s.id),slotCap()),0);
+  const noCoach=B.filter(b=>isActive(b)&&(b.slots||[]).some(s=>!(b.coachBySlot||{})[s])).length,F=S.adminFilter;
+  const list=B.filter(b=>F==="all"||(F==="pending"?b.status==="pending":F==="paid"?b.status==="paid":!isActive(b))).sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||""));
+  $("v-admin").innerHTML=`<div class="stats" style="margin-top:14px">
+      <div class="stat"><b>${money(paidMonth)}</b><span>Revenue this month (confirmed)</span></div>
+      <div class="stat"><b>${money(pend.reduce((a,b)=>a+Number(b.amount||0),0))}</b><span>${pend.length} transfers to verify</span></div>
+      <div class="stat"><b>${B.filter(b=>b.status==="paid").length}</b><span>Active swimmers</span></div>
+      <div class="stat"><b>${total?Math.round(used/total*100):0}%</b><span>Slots booked (${used}/${total})</span></div></div>
+    ${noCoach?`<div class="note warn">⚠ ${noCoach} booking(s) need a coach assigned.</div>`:""}
+    ${B.filter(b=>isActive(b)&&b.preferredTimes&&!(b.slots||[]).length).length?`<div class="note warn">🕐 ${B.filter(b=>isActive(b)&&b.preferredTimes&&!(b.slots||[]).length).length} request(s) asking for their own time — message them and add a slot.</div>`:""}
+    ${!S.settings.ipa?`<div class="note warn">Add your InstaPay address (IPA) in Settings so parents can pay.</div>`:""}
+    <div class="card"><h2>Bookings</h2>
+      <div class="seg">${[["pending","Awaiting payment"],["paid","Confirmed"],["closed","Finished/cancelled"],["all","All"]].map(([k,l])=>`<button class="${F===k?"on":""}" data-f="${k}">${l}</button>`).join("")}</div>
+      ${list.length?list.map(b=>card(b,true)).join(""):`<div class="empty">No bookings here.</div>`}
+      <div class="note">Before “Confirm payment”, check your bank app that the reference and amount actually arrived.</div></div>
+    <div class="actions"><button class="btn ghost block" data-act="logout">Sign out</button></div>`;
+}
+$("v-admin").addEventListener("click",async e=>{
+  const t=e.target.closest("button");if(!t)return;
+  if(t.dataset.f){S.adminFilter=t.dataset.f;return renderAdmin()}
+  if(t.dataset.act==="logout"){if(S.mode==="live")await S.A.signOut(S.auth);S.tab="book";location.hash="";return render()}
+  if(t.dataset.st){const b=S.bookings.find(x=>x.id===t.dataset.id);if(!b)return;const st=t.dataset.st,upd={status:st};
+    if(st==="paid"){upd.paidAt=new Date().toISOString();const miss=(b.slots||[]).filter(s=>!(b.coachBySlot||{})[s]);if(miss.length)upd.coachBySlot={...(b.coachBySlot||{}),...autoAssign(miss,b.coachPref,b.id)}}
+    t.disabled=true;await safe(()=>updateBooking(b.id,upd),st==="paid"?"Confirmed ✔ — send the parent a WhatsApp message":"Updated");return}
+  if(t.dataset.del){if(t.dataset.sure)await safe(()=>deleteBooking(t.dataset.del),"Deleted");else{t.dataset.sure="1";t.textContent="Sure? Tap again"}}
+});
+$("v-admin").addEventListener("change",async e=>{
+  const as=e.target.closest("[data-addslot]");
+  if(as&&as.value){const b=S.bookings.find(x=>x.id===as.dataset.addslot);if(!b)return;const sid=as.value;
+    if(!b.start&&false)return;
+    await safe(()=>updateBooking(b.id,{slots:[...(b.slots||[]),sid],coachBySlot:{...(b.coachBySlot||{}),...autoAssign([sid],b.coachPref,b.id)}}),"Slot added ✔");return}
+  const s=e.target.closest("[data-coach]");if(!s)return;const b=S.bookings.find(x=>x.id===s.dataset.coach);if(!b)return;
+  await safe(()=>updateBooking(b.id,{coachBySlot:{...(b.coachBySlot||{}),[s.dataset.s]:s.value}}),"Coach assigned")});
+
+/* ---------- admin: schedule ---------- */
+function renderSched(){
+  const act=S.slots.filter(s=>s.active!==false).sort((a,b)=>a.day-b.day||a.time.localeCompare(b.time)),byDay={};act.forEach(s=>(byDay[s.day]=byDay[s.day]||[]).push(s));
+  $("v-sched").innerHTML=`<div class="card"><h2>Weekly schedule</h2>
+    <div class="seg"><button class="${S.schedCoach==="all"?"on":""}" data-sc="all">All</button>${S.settings.coaches.map(c=>`<button class="${S.schedCoach===c.id?"on":""}" data-sc="${c.id}">${esc(c.name)}</button>`).join("")}</div>
+    ${Object.keys(byDay).map(d=>`<div class="day">${DAYS[d]}</div>${byDay[d].map(s=>{
+      let kids=S.bookings.filter(b=>isActive(b)&&(b.slots||[]).includes(s.id));if(S.schedCoach!=="all")kids=kids.filter(b=>(b.coachBySlot||{})[s.id]===S.schedCoach);
+      return `<div class="sched-slot"><div class="t">${fmtTime(s.time)} <span class="muted">• ${slotUse(s.id)}/${slotCap()}</span></div>${kids.length?kids.map(b=>{const c=coachById((b.coachBySlot||{})[s.id]);return `<span class="pill ${c?"":"nocoach"}">${esc(b.childName)} ← ${esc(c?.name||"no coach")}${b.status==="pending"?" ⏳":""}</span>`}).join(""):`<span class="muted">Empty</span>`}</div>`}).join("")}`).join("")||`<div class="empty">No slots. Add them in Settings.</div>`}
+    <p class="muted">⏳ = payment not confirmed yet.</p></div>`;
+}
+$("v-sched").addEventListener("click",e=>{const t=e.target.closest("[data-sc]");if(t){S.schedCoach=t.dataset.sc;renderSched()}});
+
+/* ---------- admin: settings ---------- */
+function renderSettings(){
+  const el=$("v-settings");if(document.activeElement&&el.contains(document.activeElement))return;
+  const st=S.settings,slots=[...S.slots].sort((a,b)=>a.day-b.day||a.time.localeCompare(b.time));
+  el.innerHTML=`<div class="card"><h2>Basics</h2>
+      <label>Academy name</label><input id="st-name" value="${esc(st.name)}">
+      <label>Location (optional)</label><input id="st-loc" value="${esc(st.location)}">
+      <label>WhatsApp number shown to parents</label><input id="st-phone" dir="ltr" value="${esc(st.phone)}" placeholder="01xxxxxxxxx">
+      <label>Instagram account</label><input id="st-ig" dir="ltr" value="${esc(st.instagram)}" placeholder="@bubbles.swim">
+      <label>About the academy (shown to parents)</label><textarea id="st-about" rows="3">${esc(st.about)}</textarea>
+      <div class="row"><div><label>Class length (minutes)</label><input id="st-min" type="number" value="${esc(st.sessionMinutes)}"></div>
+      <div><label>Swimmers per coach per slot</label><input id="st-per" type="number" min="1" max="6" value="${esc(st.perCoach)}"></div></div></div>
+    <div class="card"><h2>Payment (InstaPay)</h2>
+      <label>InstaPay address (IPA)</label><input id="st-ipa" dir="ltr" placeholder="name@instapay" value="${esc(st.ipa)}">
+      <label>InstaPay payment link (optional)</label><input id="st-link" dir="ltr" placeholder="https://ipn.eg/S/..." value="${esc(st.payLink)}"></div>
+    <div class="card"><h2>Coaches</h2><div id="st-coaches">${st.coaches.map(c=>`<div class="tbl-row" data-c="${c.id}"><input value="${esc(c.name)}" data-k="name"><select data-k="gender" style="flex:0 0 95px"><option value="m" ${c.gender==="m"?"selected":""}>Coach (m)</option><option value="f" ${c.gender==="f"?"selected":""}>Coach (f)</option></select><button class="x" data-rmc="${c.id}">×</button></div>`).join("")}</div>
+      <button class="btn sm ghost" data-act="addCoach">+ Coach</button></div>
+    <div class="card"><h2>Packages & prices</h2><p class="muted">Name • classes • price (EGP)</p><div id="st-pkgs">${st.packages.map(p=>`<div class="tbl-row" data-p="${p.id}"><input value="${esc(p.label)}" data-k="label"><input type="number" style="flex:0 0 64px" value="${p.sessions}" data-k="sessions"><input type="number" style="flex:0 0 88px" value="${p.price}" data-k="price"><button class="x" data-rmp="${p.id}">×</button></div>`).join("")}</div>
+      <button class="btn sm ghost" data-act="addPkg">+ Package</button></div>
+    <div class="actions"><button class="btn block" data-act="saveSettings">Save settings</button></div>
+    <div class="card"><h2>Bookable slots</h2>
+      ${slots.map(s=>`<div class="tbl-row"><span style="flex:1">${DAYS[s.day]} ${fmtTime(s.time)} <span class="muted">(${slotUse(s.id)} booked)</span></span><button class="btn sm ${s.active!==false?"ghost":""}" data-tog="${s.id}">${s.active!==false?"Open":"Closed"}</button><button class="x" data-rms="${s.id}">×</button></div>`).join("")||`<div class="empty">No slots yet. <button class="btn sm sun" data-act="seedSlots">Add starter slots</button></div>`}
+      <h3>Add a slot</h3><div class="row"><select id="ns-day">${DAYS.map((d,i)=>`<option value="${i}">${d}</option>`).join("")}</select><input id="ns-time" type="time" value="17:00"></div>
+      <div class="actions"><button class="btn block ghost" data-act="addSlot">+ Add slot</button></div></div>
+    <div class="note">Coach login link: the academy link with <b>#admin</b> at the end</div>`;
+}
+function readSettings(){const st=structuredClone(S.settings),v=id=>$(id).value.trim();
+  Object.assign(st,{name:v("st-name"),location:v("st-loc"),phone:v("st-phone"),instagram:v("st-ig"),about:v("st-about"),ipa:v("st-ipa"),payLink:v("st-link"),sessionMinutes:+v("st-min")||45,perCoach:Math.max(1,+v("st-per")||1)});
+  st.coaches=[...document.querySelectorAll("#st-coaches [data-c]")].map(r=>({id:r.dataset.c,name:r.querySelector("[data-k=name]").value.trim()||"Coach",gender:r.querySelector("[data-k=gender]").value}));
+  st.packages=[...document.querySelectorAll("#st-pkgs [data-p]")].map(r=>({id:r.dataset.p,label:r.querySelector("[data-k=label]").value.trim()||"Package",sessions:Math.max(1,+r.querySelector("[data-k=sessions]").value||1),price:Math.max(0,+r.querySelector("[data-k=price]").value||0)}));
+  return st}
+function reSettings(){document.activeElement?.blur?.();renderSettings()}
+$("v-settings").addEventListener("click",async e=>{
+  const t=e.target.closest("button");if(!t)return;const a=t.dataset.act;
+  if(a==="addCoach"){S.settings=readSettings();S.settings.coaches.push({id:"c"+rid().slice(0,6),name:"",gender:"m"});return reSettings()}
+  if(a==="addPkg"){S.settings=readSettings();S.settings.packages.push({id:"p"+rid().slice(0,6),label:"",sessions:4,price:0});return reSettings()}
+  if(t.dataset.rmc){S.settings=readSettings();if(S.settings.coaches.length<=1)return toast("Keep at least one coach");S.settings.coaches=S.settings.coaches.filter(c=>c.id!==t.dataset.rmc);reSettings();return toast("Press “Save” to keep this")}
+  if(t.dataset.rmp){S.settings=readSettings();if(S.settings.packages.length<=1)return toast("Keep at least one package");S.settings.packages=S.settings.packages.filter(p=>p.id!==t.dataset.rmp);reSettings();return toast("Press “Save” to keep this")}
+  if(a==="saveSettings"){const st=readSettings();t.disabled=true;if(await safe(()=>saveSettings(st),"Saved ✔"))S.settings=st;t.disabled=false;return reSettings()}
+  if(a==="seedSlots"){t.disabled=true;for(const s of DEFAULT_SLOTS)await safe(()=>saveSlot(s));toast("Added ✔ — edit as you like");return reSettings()}
+  if(a==="addSlot"){const day=+$("ns-day").value,time=$("ns-time").value;if(!time)return;const id="s"+day+time.replace(":","");
+    if(slotById(id))return toast("That slot already exists");await safe(()=>saveSlot({id,day,time,active:true}),"Added ✔");return reSettings()}
+  if(t.dataset.tog){const s=slotById(t.dataset.tog);await safe(()=>saveSlot({...s,active:s.active===false}));return reSettings()}
+  if(t.dataset.rms){if(slotUse(t.dataset.rms)>0)return toast("This slot has bookings — close it instead of deleting");await safe(()=>deleteSlot(t.dataset.rms));return reSettings()}
+});
+
+render();init();
+</script>
+</body>
+</html>
