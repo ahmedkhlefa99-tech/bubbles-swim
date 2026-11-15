@@ -329,7 +329,7 @@ function renderBook(){
         <li>✅ ${st.sessionMinutes}-minute sessions, all levels</li>
       </ul>`}
       <h3 style="margin-bottom:4px">How it works</h3>
-      <div class="how"><div><i>1</i>Choose a package and a time</div><div><i>2</i>Pay with InstaPay</div><div><i>3</i>Get confirmed on WhatsApp</div></div>
+      <div class="how"><div><i>1</i>Choose a package and the times that suit you</div><div><i>2</i>The coach confirms your time on WhatsApp</div><div><i>3</i>Pay with InstaPay and start swimming</div></div>
     </div>
     <div class="card">${steps}<div class="hero"><div class="t"><h2>Book a class</h2></div></div>
       <h3>1. Swimmer details</h3>
@@ -375,7 +375,7 @@ function renderBook(){
       <div class="actions"><button class="btn ghost" data-act="back">Back</button><button class="btn" style="flex:1" data-act="s3next" ${f.mode==="custom"||f.slots.length===need?"":"disabled"}>${f.mode==="custom"?"Next":`Next (${f.slots.length}/${need})`}</button></div></div>`;return}
   if(f.step===4){
     const p=pkgOf(f.pkg),dates=sessionDates({slots:f.slots,start:f.start,sessions:p.sessions}),custom=f.mode==="custom";
-    el.innerHTML=`<div class="card">${steps}<h2>4. Review & pay</h2>
+    el.innerHTML=`<div class="card">${steps}<h2>4. Review & send</h2>
       <div class="sum"><span>Swimmer</span><b>${esc(f.child.childName)} (${esc(f.child.age)})</b></div>
       <div class="sum"><span>Package</span><b>${esc(p.label)}</b></div>
       <div class="sum"><span>Type</span><b>${TYPES[f.ptype].name}</b></div>
