@@ -508,7 +508,8 @@ function card(b,admin){
     h+=`<div class="kv"><span>Parent:</span> ${esc(b.parentName)} • <a href="https://wa.me/${waNum(b.phone)}" target="_blank" rel="noopener" dir="ltr">${esc(b.phone)}</a></div>
       <div class="kv"><span>Level:</span> ${esc(b.level)} • ${b.gender==="f"?"Female":"Male"}${b.coachPref&&b.coachPref!=="any"?` • prefers ${esc(coachById(b.coachPref)?.name||"")}`:""}</div>
       ${b.ref?`<div class="kv"><span>Transfer:</span> ${esc(b.payer)} • ref <b dir="ltr">${esc(b.ref)}</b></div>`:repPay?`<div class="note" style="background:#dcf5ea;color:#0d6b43">💳 <b>Parent says they paid:</b> ${esc(repPay.payer)} • ref <b dir="ltr">${esc(repPay.ref)}</b><br>Check your bank app, then tap “Confirm payment”.</div>`:`<div class="kv"><span>Transfer:</span> not paid yet</div>`}
-      ${isActive(b)&&(b.slots||[]).length<Math.min(b.perWeek||1,3)?`<div class="tbl-row"><span style="flex:1;font-size:14px">Add a slot</span><select style="flex:1.3" data-addslot="${b.id}"><option value="">— choose a slot —</option>${S.slots.filter(s=>s.active!==false&&!(b.slots||[]).includes(s.id)).sort((x,y)=>x.day-y.day||x.time.localeCompare(y.time)).map(s=>`<option value="${s.id}" ${spotsFor(b.ptype,s.id,b.id)<=0?"disabled":""}>${slotLabel(s.id)}${spotsFor(b.ptype,s.id,b.id)<=0?" (full)":""}</option>`).join("")}</select></div>`:""}
+      ${isActive(b)&&(b.slots||[]).length<Math.min(b.perWeek||2,3)?`<div style="background:#f5fbfd;border-radius:12px;padding:10px;margin-top:8px"><b style="font-size:14px">Confirm a time (${(b.slots||[]).length}/${Math.min(b.perWeek||2,3)})</b>
+        <div class="tbl-row"><select style="flex:1.2" id="cd-${b.id}">${DAYS.map((d,i)=>`<option value="${i}">${d}</option>`).join("")}</select><input type="time" style="flex:1" id="ct-${b.id}" value="17:00"><button class="btn sm" data-confirmtime="${b.id}">Add</button></div></div>`:""}
       ${b.notes?`<div class="kv"><span>Notes:</span> ${esc(b.notes)}</div>`:""}
       ${(b.slots||[]).map(s=>`<div class="tbl-row"><span style="flex:1;font-size:14px">${slotLabel(s)}${b.ptype==="group"?` <span class="muted">• group ${groupFill(s)}/3</span>`:""}</span><select style="flex:1.3" data-coach="${b.id}" data-s="${s}"><option value="">— coach —</option>${S.settings.coaches.map(c=>{const cur=cOf((b.coachBySlot||{})[s])===c.id,free=coachFree(c.id,s,b.ptype,b.id);return `<option value="${c.id}" ${cur?"selected":""} ${!free&&!cur?"disabled":""}>${esc(c.name)}${!free&&!cur?" (busy)":""}</option>`}).join("")}</select></div>`).join("")}
       <div class="actions">
@@ -563,6 +564,12 @@ function renderAdmin(){
 }
 $("v-admin").addEventListener("click",async e=>{
   const t=e.target.closest("button");if(!t)return;
+  if(t.dataset.confirmtime){const b=S.bookings.find(x=>x.id===t.dataset.confirmtime);if(!b)return;
+    const day=+$("cd-"+b.id).value,time=$("ct-"+b.id).value;if(!time)return toast("Choose a time");
+    const sid="s"+day+time.replace(":","");if((b.slots||[]).includes(sid))return toast("Already added");
+    t.disabled=true;
+    if(!slotById(sid)){if(!await safe(()=>saveSlot({id:sid,day,time,active:true})))return;}
+    await safe(()=>updateBooking(b.id,{slots:[...(b.slots||[]),sid],coachBySlot:{...(b.coachBySlot||{}),...autoAssign([sid],b.coachPref,b.ptype,b.id)}}),"Time added ✔");return}
   if(t.dataset.f){S.adminFilter=t.dataset.f;return renderAdmin()}
   if(t.dataset.act==="logout"){if(S.mode==="live")await S.A.signOut(S.auth);S.tab="book";location.hash="";return render()}
   if(t.dataset.st){const b=S.bookings.find(x=>x.id===t.dataset.id);if(!b)return;const st=t.dataset.st,upd={status:st};
