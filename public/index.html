@@ -481,7 +481,7 @@ function renderBook(){
       <div class="sum"><span>First class</span><b>${dates[0]?fmtDate(dates[0].date):"-"}</b></div>
       <div class="sum"><span>Last class</span><b>${dates.length?fmtDate(dates.at(-1).date):"-"}</b></div>`}
       <div class="sum"><span>Total</span><span class="total">${money(p.price)}<small style="font-size:13px;font-weight:600">${TYPES[typeOfPkg(p)].note}</small></span></div>
-      <label>Notes (optional)</label><textarea id="f-notes2" rows="2" placeholder="e.g. prefer a female coach, health notes, anything we should know">${esc(f.child.notes||"")}</textarea>
+      <label>Notes (optional)</label><textarea id="f-notes2" rows="2" placeholder="e.g. health notes, anything we should know">${esc(f.child.notes||"")}</textarea>
       ${custom?`<div class="note">The coach will message you on WhatsApp to confirm your time. Then you'll get a link to pay with InstaPay.</div>`:`<div class="pay"><b>Pay with InstaPay 💳</b>
         ${st.ipa?`<div class="ipa"><span>${esc(st.ipa)}</span><button class="btn sm ghost" data-act="copyIpa">Copy</button></div>`:`<p class="muted">The payment address will appear here once the coach adds it.</p>`}
         ${st.payLink?`<a class="btn sun block" href="${esc(cleanLink(st.payLink))}" target="_blank" rel="noopener">Open InstaPay and pay ${money(p.price)}</a>`:""}
@@ -555,7 +555,7 @@ function bookingMsg(b){
   L.push(`Booking ID: ${String(b.id||"").slice(0,6).toUpperCase()}`);
   return L.join("\n");
 }
-function waMsg(b){const lines=(b.slots||[]).map(s=>`${slotLabel(s)} with ${coachById(cOf((b.coachBySlot||{})[s]))?.name||"the coach"}`).join("\n"),d=sessionDates(b);
+function waMsg(b){const lines=(b.slots||[]).map(s=>slotLabel(s)).join("\n"),d=sessionDates(b);
   return b.status==="paid"?`Hi ${b.parentName}\n${b.childName}'s booking at ${S.settings.name} (${b.package}) is confirmed\nSchedule:\n${lines}\nFirst class: ${d[0]?fmtDate(d[0].date):""}${b.location||S.settings.location?"\nLocation: "+(b.location||S.settings.location):""}`
     :(b.slots||[]).length&&!b.ref?`Hi ${b.parentName}\n${b.childName}'s time at ${S.settings.name} is confirmed\nSchedule:\n${lines}\nFirst class: ${d[0]?fmtDate(d[0].date):""}\n\nPlease pay ${b.amount} EGP here:\n${payLinkFor(b)}`
     :`Hi ${b.parentName}\nAbout ${b.childName}'s booking (${b.package}) for ${b.amount} EGP`}
