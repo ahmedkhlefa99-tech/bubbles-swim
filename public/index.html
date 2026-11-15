@@ -166,13 +166,13 @@ const DEFAULT_SETTINGS = {
   perCoach:1, sessionMinutes:45,
   about:"Swimming lessons for every age — from baby swimming to adults. Patient, small classes that build water confidence, safety and real technique at your own pace.",
   coaches:[{id:"c1",name:"Coach Ahmed",gender:"m"},{id:"c2",name:"Assistant Coach",gender:"f"}],
-  pkgVersion:3,
+  pkgVersion:4,
   packages:[
     {id:"a4",type:"p1",label:"Private · 4 sessions",sessions:4,price:1350},
     {id:"a8",type:"p1",label:"Private · 8 sessions",sessions:8,price:2500},
     {id:"b4",type:"p2",label:"Private for 2 · 4 sessions",sessions:4,price:2700},
     {id:"b8",type:"p2",label:"Private for 2 · 8 sessions",sessions:8,price:4400},
-    {id:"g4",type:"group",label:"Small group · 4 sessions",sessions:4,price:1000},
+    {id:"g8",type:"group",label:"Small group · 8 sessions",sessions:8,price:1000},
     {id:"s2",type:"sib",count:2,label:"2 siblings · 8 sessions",sessions:8,price:4000},
     {id:"s5",type:"sib",count:5,label:"5 siblings · 8 sessions",sessions:8,price:5000}
   ]
@@ -237,7 +237,7 @@ async function init(){
     const [{initializeApp},F,A]=await Promise.all([import(FB+"firebase-app.js"),import(FB+"firebase-firestore.js"),import(FB+"firebase-auth.js")]);
     const app=initializeApp(firebaseConfig);S.F=F;S.A=A;S.fs=F.getFirestore(app);S.auth=A.getAuth(app);S.mode="live";
     const slow=setTimeout(()=>{if(!S._loaded)toast("Slow connection… loading data")},10000);
-    F.onSnapshot(F.doc(S.fs,"settings","main"),s=>{S._loaded=true;clearTimeout(slow);if(s.exists()){const d={...s.data()};if(!(d.pkgVersion>=3))delete d.packages;S.settings={...structuredClone(DEFAULT_SETTINGS),...d}}render()},e=>console.warn(e));
+    F.onSnapshot(F.doc(S.fs,"settings","main"),s=>{S._loaded=true;clearTimeout(slow);if(s.exists()){const d={...s.data()};if(!(d.pkgVersion>=4))delete d.packages;S.settings={...structuredClone(DEFAULT_SETTINGS),...d}}render()},e=>console.warn(e));
     F.onSnapshot(F.collection(S.fs,"slots"),q=>{S.slots=q.docs.map(d=>({id:d.id,...d.data()}));render()},e=>console.warn(e));
     F.onSnapshot(F.collection(S.fs,"holds"),q=>{S.holds=q.docs.map(d=>({id:d.id,...d.data()}));render()},e=>console.warn(e));
     for(const id of myIds())watchMine(id);
@@ -574,7 +574,7 @@ function readSettings(){const st=structuredClone(S.settings),v=id=>$(id).value.t
   Object.assign(st,{name:v("st-name"),location:v("st-loc"),phone:v("st-phone"),instagram:v("st-ig"),about:v("st-about"),ipa:v("st-ipa"),payLink:v("st-link"),sessionMinutes:+v("st-min")||45,perCoach:Math.max(1,+v("st-per")||1)});
   st.coaches=[...document.querySelectorAll("#st-coaches [data-c]")].map(r=>({id:r.dataset.c,name:r.querySelector("[data-k=name]").value.trim()||"Coach",gender:r.querySelector("[data-k=gender]").value}));
   st.packages=[...document.querySelectorAll("#st-pkgs [data-p]")].map(r=>({id:r.dataset.p,type:r.querySelector("[data-k=type]").value,count:Math.max(0,+r.querySelector("[data-k=count]").value||0),label:r.querySelector("[data-k=label]").value.trim()||"Package",sessions:Math.max(1,+r.querySelector("[data-k=sessions]").value||1),price:Math.max(0,+r.querySelector("[data-k=price]").value||0)}));
-  st.pkgVersion=3;return st}
+  st.pkgVersion=4;return st}
 function reSettings(){document.activeElement?.blur?.();renderSettings()}
 $("v-settings").addEventListener("click",async e=>{
   const t=e.target.closest("button");if(!t)return;const a=t.dataset.act;
