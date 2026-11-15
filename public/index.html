@@ -423,7 +423,7 @@ function openRenew(){const id=renewHash();if(!id)return;S.tab="renew";if(S.renew
 window.addEventListener("hashchange",()=>{if(payHash())return openPay();if(renewHash())return openRenew();if(wantsAdmin()){S.tab=S.admin?"admin":"login";render()}});
 function render(){
   const st=S.settings;
-  $("appName").textContent=st.name||"Bubbles Swim Academy";$("appLoc").textContent=st.location||"Swimming for every age";
+  $("appName").textContent=st.name||"Bubbles Swim Academy";$("appLoc").textContent="Swimming for every age";
   $("modeBadge").textContent=S.mode==="loading"?"Loading…":S.mode==="demo"?"Demo — not connected to the database":S.admin?"Signed in as coach ✔":"Book your class in 2 minutes 🫧";
   const ig=$("igLink");const h=(st.instagram||"").replace(/^@/,"").replace(/^https?:\/\/(www\.)?instagram\.com\//,"").replace(/\/.*$/,"");
   if(h){ig.href="https://instagram.com/"+encodeURIComponent(h);ig.classList.remove("hide")}else ig.classList.add("hide");
@@ -844,7 +844,7 @@ function renderSettings(){
   const st=S.settings,slots=[...S.slots].sort((a,b)=>a.day-b.day||a.time.localeCompare(b.time));
   el.innerHTML=`<div class="card"><h2>Basics</h2>
       <label>Academy name</label><input id="st-name" value="${esc(st.name)}">
-      <label>Location (optional)</label><input id="st-loc" value="${esc(st.location)}">
+      <input id="st-loc" type="hidden" value="${esc(st.location)}">
       <label>WhatsApp number shown to parents</label><input id="st-phone" dir="ltr" value="${esc(st.phone)}" placeholder="01xxxxxxxxx">
       <label>Instagram account</label><input id="st-ig" dir="ltr" value="${esc(st.instagram)}" placeholder="@bubbles.swim">
       <label>About the academy (shown to parents)</label><textarea id="st-about" rows="3">${esc(st.about)}</textarea>
