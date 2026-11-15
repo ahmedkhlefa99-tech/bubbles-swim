@@ -117,14 +117,43 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--aqua);bo
 .hero h2{margin:0}
 .pkedit{border:1px solid #d6eef5;border-radius:14px;padding:4px 12px 12px;margin-top:10px}
 .locs{background:#e8f6fb;border-radius:12px;padding:10px 12px;margin:12px 0 4px;font-size:15px;text-align:center}
+
+/* ---- bubbles & motion ---- */
+.hbubs{position:absolute;inset:0;pointer-events:none;z-index:0}
+.bub{position:absolute;bottom:-30px;border-radius:50%;background:radial-gradient(circle at 32% 30%,rgba(255,255,255,.95) 0 9%,rgba(255,255,255,.28) 10% 38%,rgba(255,255,255,.08) 60%);border:1.5px solid rgba(255,255,255,.55);box-shadow:inset -2px -3px 6px rgba(255,255,255,.25);animation:rise var(--d,8s) ease-in infinite;animation-delay:var(--dl,0s);opacity:0}
+.bub::after{content:"";position:absolute;inset:0;border-radius:50%;animation:sway var(--sw,3s) ease-in-out infinite alternate}
+@keyframes rise{0%{transform:translate(0,0) scale(.6);opacity:0}10%{opacity:1}50%{transform:translate(var(--x,12px),-90px) scale(1)}90%{opacity:.9}100%{transform:translate(calc(var(--x,12px)*-1),-190px) scale(1.1);opacity:0}}
+.sea-bubs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.sea-bubs .bub{border-color:rgba(18,140,180,.28);background:radial-gradient(circle at 32% 30%,rgba(255,255,255,.95) 0 10%,rgba(120,210,235,.22) 11% 45%,rgba(120,210,235,.06) 70%);animation-name:riseFar}
+@keyframes riseFar{0%{transform:translate(0,0);opacity:0}8%{opacity:.8}50%{transform:translate(var(--x,20px),-55vh)}92%{opacity:.6}100%{transform:translate(calc(var(--x,20px)*-1),-110vh);opacity:0}}
+main.wrap{position:relative;z-index:1}
+.wavebox{position:absolute;left:0;right:0;bottom:-1px;height:30px;overflow:hidden}
+.wv{position:absolute;bottom:0;left:0;width:200%;height:30px}
+.wv1{animation:waveX 9s linear infinite;bottom:4px}.wv2{animation:waveX 14s linear infinite reverse}
+@keyframes waveX{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+header.top .logo{animation:bob 3.2s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-5px) rotate(3deg)}}
+.intro .tile{animation:popIn .55s cubic-bezier(.3,1.6,.5,1) both}
+.intro .tile:nth-child(2){animation-delay:.12s}.intro .tile:nth-child(3){animation-delay:.24s}
+.intro .tile span{display:block;animation:floaty 2.6s ease-in-out infinite}
+.intro .tile:nth-child(2) span{animation-delay:.4s}.intro .tile:nth-child(3) span{animation-delay:.8s}
+@keyframes popIn{from{transform:scale(.4) translateY(14px);opacity:0}to{transform:none;opacity:1}}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.intro .facts li{animation:slideIn .5s ease-out both}
+.intro .facts li:nth-child(1){animation-delay:.3s}.intro .facts li:nth-child(2){animation-delay:.4s}.intro .facts li:nth-child(3){animation-delay:.5s}.intro .facts li:nth-child(4){animation-delay:.6s}.intro .facts li:nth-child(5){animation-delay:.7s}
+@keyframes slideIn{from{transform:translateX(-18px);opacity:0}to{transform:none;opacity:1}}
+.intro h2 .bb{display:inline-block;animation:floaty 1.8s ease-in-out infinite}
+.nw{white-space:nowrap}
+.locs{animation:popIn .6s .2s cubic-bezier(.3,1.6,.5,1) both}
+.pop{position:fixed;z-index:50;pointer-events:none;border-radius:50%;border:1.5px solid rgba(18,140,180,.55);background:radial-gradient(circle at 32% 30%,#fff 0 12%,rgba(120,210,235,.3) 13% 60%,transparent 70%);animation:popUp .9s ease-out forwards}
+@keyframes popUp{from{transform:translate(0,0) scale(.3);opacity:1}to{transform:translate(var(--x),var(--y)) scale(1);opacity:0}}
+@media (prefers-reduced-motion:reduce){.bub,.wv,.pop,header.top .logo,.intro *{animation:none!important}.bub,.pop{display:none}}
 </style>
 </head>
 <body>
+<div class="sea-bubs" id="seaBubs" aria-hidden="true"></div>
 <header class="top">
-  <span class="bub" style="width:18px;height:18px;left:12%;bottom:0;animation-delay:0s"></span>
-  <span class="bub" style="width:10px;height:10px;left:28%;bottom:0;animation-delay:2.5s"></span>
-  <span class="bub" style="width:24px;height:24px;left:70%;bottom:0;animation-delay:1.2s"></span>
-  <span class="bub" style="width:12px;height:12px;left:85%;bottom:0;animation-delay:4s"></span>
+  <div class="hbubs" id="hBubs" aria-hidden="true"></div>
   <div class="wrap">
     <div class="brand">
       <img class="logo" src="icon-192.png" alt="" style="border-radius:50%;background:#fff">
@@ -132,7 +161,10 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--aqua);bo
     </div>
     <span class="badge-mode" id="modeBadge">Loading…</span><a class="ig hide" id="igLink" target="_blank" rel="noopener">📷 Follow us on Instagram</a>
   </div>
-  <svg class="waves" viewBox="0 0 1200 40" preserveAspectRatio="none"><path d="M0,20 C150,40 350,0 600,18 C850,36 1050,4 1200,20 L1200,40 L0,40 Z" fill="#eaf9fc"/></svg>
+  <div class="wavebox" aria-hidden="true">
+    <svg class="wv wv1" viewBox="0 0 2400 40" preserveAspectRatio="none"><path d="M0,20 C150,40 450,0 600,20 C750,40 1050,0 1200,20 C1350,40 1650,0 1800,20 C1950,40 2250,0 2400,20 L2400,40 L0,40 Z" fill="rgba(255,255,255,.35)"/></svg>
+    <svg class="wv wv2" viewBox="0 0 2400 40" preserveAspectRatio="none"><path d="M0,22 C200,6 400,38 600,22 C800,6 1000,38 1200,22 C1400,6 1600,38 1800,22 C2000,6 2200,38 2400,22 L2400,40 L0,40 Z" fill="#eaf9fc"/></svg>
+  </div>
 </header>
 
 <main class="wrap">
@@ -149,6 +181,15 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--aqua);bo
 <nav class="tabsbar"><div class="in" id="tabs"></div></nav>
 <div class="toast" id="toast"></div>
 
+<script>
+// ---- bubbles ----
+(function(){const R=(a,b)=>a+Math.random()*(b-a);
+  const mk=(box,n,big,dur)=>{if(!box)return;for(let i=0;i<n;i++){const e=document.createElement("span"),z=R(...big);e.className="bub";e.style.cssText=`width:${z}px;height:${z}px;left:${R(0,97)}%;--d:${R(...dur)}s;--dl:${R(0,dur[1])}s;--x:${R(-22,22)}px`;box.appendChild(e)}};
+  mk(document.getElementById("hBubs"),28,[8,34],[4.5,9]);
+  mk(document.getElementById("seaBubs"),14,[8,30],[14,26]);
+  document.addEventListener("pointerdown",e=>{if(!e.target.closest("#v-book,header.top"))return;if(e.target.closest("input,select,textarea"))return;
+    for(let i=0;i<7;i++){const b=document.createElement("span"),z=R(6,16);b.className="pop";b.style.cssText=`width:${z}px;height:${z}px;left:${e.clientX-z/2}px;top:${e.clientY-z/2}px;--x:${R(-40,40)}px;--y:${R(-90,-35)}px;animation-delay:${i*25}ms`;document.body.appendChild(b);setTimeout(()=>b.remove(),1200)}},{passive:true})})();
+</script>
 <script type="module">
 /* =====================================================================
    1) Firebase project settings
@@ -328,10 +369,10 @@ function renderBook(){
       <div class="actions"><button class="btn ghost block" data-act="toMine">View my bookings</button><button class="btn ghost block" data-act="newBk">New booking</button></div></div>`;return}
   if(f.step===1){const c=f.child;
     
-    el.innerHTML=`<div class="card intro"><h2>Learn to swim with confidence 🫧</h2>
+    el.innerHTML=`<div class="card intro"><h2>Learn to swim with confidence <span class="bb">🫧</span></h2>
       ${st.about?`<p class="muted" style="margin:0">${esc(st.about)}</p>`:""}
       <div class="tiles"><div class="tile"><span>👶</span>Babies</div><div class="tile"><span>🧒</span>Kids</div><div class="tile"><span>🧑</span>Adults</div></div>
-      <div class="locs">📍 <b>Our locations:</b> Rehab · El Shorouk · El Tagamoa</div>
+      <div class="locs">📍 <b>Our locations:</b> <span class="nw">Rehab</span> · <span class="nw">El Shorouk</span> · <span class="nw">El Tagamoa</span></div>
       ${S.mode==="loading"||(S.mode==="live"&&!S._loaded)?`<p class="muted">Loading…</p>`:`<ul class="facts">
         <li>✅ <b>Private sessions</b> — for 1 or 2 swimmers</li>
         <li>✅ <b>Small groups</b> of 3 swimmers</li>
