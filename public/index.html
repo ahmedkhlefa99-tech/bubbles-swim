@@ -115,6 +115,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--aqua);bo
 .step-note{background:#fff8e6;border:1.5px dashed #f1d38a;border-radius:14px;padding:12px;margin:12px 0;font-size:15px}
 .hero .t{flex:1}
 .hero h2{margin:0}
+.pkedit{border:1px solid #d6eef5;border-radius:14px;padding:4px 12px 12px;margin-top:10px}
 .locs{background:#e8f6fb;border-radius:12px;padding:10px 12px;margin:12px 0 4px;font-size:15px;text-align:center}
 </style>
 </head>
@@ -607,6 +608,8 @@ $("v-admin").addEventListener("click",async e=>{
     if(S.mode==="demo")render();return}
   if(t.dataset.del){if(t.dataset.sure)await safe(()=>deleteBooking(t.dataset.del),"Deleted");else{t.dataset.sure="1";t.textContent="Sure? Tap again"}}
 });
+$("v-settings").addEventListener("change",e=>{if(e.target.id!=="st-pksel")return;S.pkSel=e.target.value;document.querySelectorAll("#st-pkgs [data-p]").forEach(r=>r.style.display=r.dataset.p===S.pkSel?"":"none")});
+$("v-settings").addEventListener("input",e=>{const r=e.target.closest("#st-pkgs [data-p]");if(!r)return;const o=$("st-pksel")?.querySelector(`option[value="${r.dataset.p}"]`);if(o)o.textContent=`${r.querySelector("[data-k=label]").value.trim()||"New package"} — ${+r.querySelector("[data-k=price]").value||0} EGP`});
 $("v-admin").addEventListener("change",async e=>{
   const as=e.target.closest("[data-addslot]");
   if(as&&as.value){const b=S.bookings.find(x=>x.id===as.dataset.addslot);if(!b)return;const sid=as.value;
@@ -644,7 +647,17 @@ function renderSettings(){
       <label>InstaPay payment link (optional)</label><input id="st-link" dir="ltr" placeholder="https://ipn.eg/S/..." value="${esc(st.payLink)}"></div>
     <div class="card"><h2>Coaches</h2><div id="st-coaches">${st.coaches.map(c=>`<div class="tbl-row" data-c="${c.id}"><input value="${esc(c.name)}" data-k="name"><select data-k="gender" style="flex:0 0 95px"><option value="m" ${c.gender==="m"?"selected":""}>Coach (m)</option><option value="f" ${c.gender==="f"?"selected":""}>Coach (f)</option></select><button class="x" data-rmc="${c.id}">×</button></div>`).join("")}</div>
       <button class="btn sm ghost" data-act="addCoach">+ Coach</button></div>
-    <div class="card"><h2>Packages & prices</h2><p class="muted">Type • name • sessions • price (EGP). “Private for 2” = total for both; “Small group” = per swimmer. “Siblings” = total for all, # = number of siblings.</p><div id="st-pkgs">${st.packages.map(p=>`<div class="tbl-row" data-p="${p.id}" style="flex-wrap:wrap"><select data-k="type" style="flex:1 1 100%">${Object.keys(TYPES).map(k=>`<option value="${k}" ${typeOfPkg(p)===k?"selected":""}>${TYPES[k].name}</option>`).join("")}</select><input value="${esc(p.label)}" data-k="label"><input type="number" min="2" max="8" style="flex:0 0 56px" value="${esc(p.count||"")}" data-k="count" title="Siblings count (siblings packages only)" placeholder="#"><input type="number" style="flex:0 0 64px" value="${p.sessions}" data-k="sessions"><input type="number" style="flex:0 0 60px" value="${esc(p.minutes||"")}" data-k="minutes" title="Minutes per session (leave empty for the default)" placeholder="min"><input type="number" style="flex:0 0 88px" value="${p.price}" data-k="price"><button class="x" data-rmp="${p.id}">×</button></div>`).join("")}</div>
+    <div class="card"><h2>Packages & prices</h2><p class="muted">Choose a package to edit it. Prices in EGP.</p>${(()=>{if(!st.packages.some(p=>p.id===S.pkSel))S.pkSel=st.packages[0]?.id;return ""})()}
+      <select id="st-pksel">${st.packages.map(p=>`<option value="${p.id}" ${p.id===S.pkSel?"selected":""}>${esc(p.label||"New package")} — ${p.price} EGP</option>`).join("")}</select>
+      <div id="st-pkgs">${st.packages.map(p=>`<div class="pkedit" data-p="${p.id}" ${p.id===S.pkSel?"":'style="display:none"'}>
+        <label>Type</label><select data-k="type">${Object.keys(TYPES).map(k=>`<option value="${k}" ${typeOfPkg(p)===k?"selected":""}>${TYPES[k].name}</option>`).join("")}</select>
+        <label>Name parents see</label><input value="${esc(p.label)}" data-k="label" placeholder="e.g. Private · 8 sessions">
+        <div class="row"><div><label>Sessions</label><input type="number" min="1" value="${p.sessions}" data-k="sessions"></div>
+        <div><label>Price (EGP)</label><input type="number" min="0" value="${p.price}" data-k="price"></div></div>
+        <div class="row"><div><label>Minutes</label><input type="number" value="${esc(p.minutes||"")}" data-k="minutes" placeholder="${st.sessionMinutes} (default)"></div>
+        <div><label>Siblings #</label><input type="number" min="2" max="8" value="${esc(p.count||"")}" data-k="count" placeholder="siblings only"></div></div>
+        <p class="muted" style="font-size:13px">Price is: private for 2 = total for both · small group = per swimmer · siblings = total for all.</p>
+        <button class="btn sm ghost" style="color:#c0392b" data-rmp="${p.id}">🗑 Delete this package</button></div>`).join("")}</div>
       <button class="btn sm ghost" data-act="addPkg">+ Package</button></div>
     <div class="actions"><button class="btn block" data-act="saveSettings">Save settings</button></div>
     <div class="card"><h2>Bookable slots</h2>
@@ -662,7 +675,7 @@ function reSettings(){document.activeElement?.blur?.();renderSettings()}
 $("v-settings").addEventListener("click",async e=>{
   const t=e.target.closest("button");if(!t)return;const a=t.dataset.act;
   if(a==="addCoach"){S.settings=readSettings();S.settings.coaches.push({id:"c"+rid().slice(0,6),name:"",gender:"m"});return reSettings()}
-  if(a==="addPkg"){S.settings=readSettings();S.settings.packages.push({id:"p"+rid().slice(0,6),type:"p1",label:"",sessions:4,price:0});return reSettings()}
+  if(a==="addPkg"){S.settings=readSettings();const nid="p"+rid().slice(0,6);S.settings.packages.push({id:nid,type:"p1",label:"",sessions:8,price:0});S.pkSel=nid;return reSettings()}
   if(t.dataset.rmc){S.settings=readSettings();if(S.settings.coaches.length<=1)return toast("Keep at least one coach");S.settings.coaches=S.settings.coaches.filter(c=>c.id!==t.dataset.rmc);reSettings();return toast("Press “Save” to keep this")}
   if(t.dataset.rmp){S.settings=readSettings();if(S.settings.packages.length<=1)return toast("Keep at least one package");S.settings.packages=S.settings.packages.filter(p=>p.id!==t.dataset.rmp);reSettings();return toast("Press “Save” to keep this")}
   if(a==="saveSettings"){const st=readSettings();t.disabled=true;if(await safe(()=>saveSettings(st),"Saved ✔"))S.settings=st;t.disabled=false;return reSettings()}
