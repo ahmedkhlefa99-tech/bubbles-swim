@@ -350,7 +350,7 @@ async function init(){
     openPay();openRenew();
     A.onAuthStateChanged(S.auth,u=>{S.admin=u||null;
       if(S._unBk){S._unBk();S._unBk=null}
-      if(u){S._unBk=F.onSnapshot(F.collection(S.fs,"bookings"),q=>{const all=q.docs.map(d=>({id:d.id,...d.data()}));S.bookings=all.filter(x=>!x.kind);S.payments=all.filter(x=>x.kind==="payment");S.coachlogs=all.filter(x=>x.kind==="coachlog");render()},e=>{toast("This account is not an admin");});
+      if(u){S._unBk=F.onSnapshot(F.collection(S.fs,"bookings"),q=>{const all=q.docs.map(d=>({id:d.id,...d.data()}));S.bookings=all.filter(x=>!x.kind);S.payments=all.filter(x=>x.kind==="payment");S.coachlogs=all.filter(x=>x.kind==="coachlog");S.rates=all.find(x=>x.kind==="coachrates")||null;render()},e=>{toast("This account is not an admin");});
         if(S.tab==="login")S.tab="admin"}
       else{S.bookings=[];if(["admin","att","sched","settings"].includes(S.tab))S.tab="login"}
       render()});
@@ -382,6 +382,20 @@ async function saveCoachLog(month,log){
   const F=S.F;if(ex){await F.updateDoc(F.doc(S.fs,"bookings",ex.id),{log});return}
   await F.setDoc(F.doc(F.collection(S.fs,"bookings")),{kind:"coachlog",month,log,status:"pending",childName:"-",parentName:"-",phone:"-",slots:[],createdAt:new Date().toISOString()});
 }
+async function saveRates(rates){
+  if(S.mode==="demo"){S.rates={...(S.rates||{}),kind:"coachrates",rates};render();return}
+  const F=S.F;if(S.rates){await F.updateDoc(F.doc(S.fs,"bookings",S.rates.id),{rates});return}
+  await F.setDoc(F.doc(F.collection(S.fs,"bookings")),{kind:"coachrates",rates,status:"pending",childName:"-",parentName:"-",phone:"-",slots:[],createdAt:new Date().toISOString()});
+}
+function coachPay(month){ // sessions each coach actually taught, from swimmer attendance
+  const out={};for(const c of S.settings.coaches)out[c.id]={n:0,list:[]};
+  const seen=new Set();
+  for(const b of S.bookings){if(!b.att)continue;const map={};for(const x of sessionDates(b))map[isoOf(x.date)]=x.slot;
+    for(const [day,v] of Object.entries(b.att)){if(!day.startsWith(month)||(v!=="p"&&v!=="a"))continue;const slot=map[day];if(!slot)continue;
+      const cid=cOf((b.coachBySlot||{})[slot]);if(!out[cid])continue;
+      const lg=((S.coachlogs.find(x=>x.month===month)||{}).log||{})[day]||{};if(lg[cid]==="a")continue;
+      const k=day+"|"+slot+"|"+cid,o=out[cid];if(!seen.has(k)){seen.add(k);o.n++;o.list.push({day,time:slotById(slot)?.time,names:[b.childName]})}else o.list.find(x=>x.day===day&&x.time===slotById(slot)?.time).names.push(b.childName)}}
+  for(const c in out)out[c].list.sort((a,b)=>(a.day+a.time).localeCompare(b.day+b.time));return out}
 async function saveSettings(st){if(S.mode==="demo"){S.settings=st;render();return}await S.F.setDoc(S.F.doc(S.fs,"settings","main"),st)}
 async function saveSlot(s){const {id,...d}=s;if(S.mode==="demo"){const i=S.slots.findIndex(x=>x.id===id);i>=0?S.slots[i]=s:S.slots.push(s);render();return}await S.F.setDoc(S.F.doc(S.fs,"slots",id),d)}
 async function deleteSlot(id){if(S.mode==="demo"){S.slots=S.slots.filter(x=>x.id!==id);render();return}await S.F.deleteDoc(S.F.doc(S.fs,"slots",id))}
@@ -699,7 +713,7 @@ $("v-renew").addEventListener("click",async e=>{const t=e.target.closest("[data-
 
 /* ---------- admin: attendance ---------- */
 function renderAtt(){
-  const el=$("v-att");
+  const el=$("v-att");if(document.activeElement?.dataset?.rate)return;
   const day=S.attDate||todayISO(),month=day.slice(0,7),log=(S.coachlogs.find(x=>x.month===month)||{}).log||{},today=log[day]||{};
   const rows=[];for(const b of S.bookings){if(b.status!=="paid"&&b.status!=="done")continue;for(const x of sessionDates(b))if(isoOf(x.date)===day)rows.push({b,slot:x.slot})}
   rows.sort((a,c)=>String(slotById(a.slot)?.time).localeCompare(String(slotById(c.slot)?.time)));
@@ -718,13 +732,22 @@ function renderAtt(){
     <p class="muted" style="font-size:13px">✓ and ✗ use up a session. ↺ Excused (parent told you in time) adds a make-up session at the end of the package.</p></div>
     <div class="card"><h2>Coaches</h2>
     ${S.settings.coaches.map(c=>{const v=today[c.id],m=coachMonth(c.id);return `<div class="bk"><div class="hd"><b>${esc(c.name)}</b><span class="muted">${new Date(day+"T12:00:00").toLocaleDateString("en-GB",{month:"short"})}: ${m.p} present • ${m.a} absent</span></div>
-      <div class="seg att">${["p","a"].map(k=>`<button class="${v===k?"on "+k:""}" data-catt="${c.id}" data-v="${k}">${lbl[k]}</button>`).join("")}</div></div>`}).join("")}</div>`;
+      <div class="seg att">${["p","a"].map(k=>`<button class="${v===k?"on "+k:""}" data-catt="${c.id}" data-v="${k}">${lbl[k]}</button>`).join("")}</div></div>`}).join("")}</div>
+    ${(()=>{const pay=coachPay(month),rates=(S.rates||{}).rates||{},mName=new Date(day+"T12:00:00").toLocaleDateString("en-GB",{month:"long",year:"numeric"});let total=0;
+      const rowsH=S.settings.coaches.map(c=>{const r=Number(rates[c.id])||0,n=pay[c.id].n,sum=n*r;total+=sum;
+        return `<div class="bk"><div class="hd"><b>${esc(c.name)}</b><span class="total" style="font-size:18px">${money(sum)}</span></div>
+          <div class="tbl-row"><span style="flex:1"><b>${n}</b> session${n===1?"":"s"} ×</span><input type="number" min="0" style="flex:0 0 110px" data-rate="${c.id}" value="${r||""}" placeholder="rate"><span>EGP</span></div>
+          ${n?`<details class="info"><summary>Sessions taught</summary><p>${pay[c.id].list.map(x=>`${fmtDate(new Date(x.day+"T12:00:00"))} ${fmtTime(x.time)} — ${x.names.map(esc).join(", ")}`).join("<br>")}</p></details>`:""}</div>`}).join("");
+      return `<div class="card"><h2>Coach pay — ${mName}</h2><p class="muted">Counts every class where a swimmer was marked ✓ or ✗ with that coach (group = 1 session). Days the coach is marked absent aren't counted. Rates are private — only you see them.</p>
+        ${rowsH}<div class="sum"><span>Total for the month</span><span class="total">${money(total)}</span></div>
+        <div class="actions"><button class="btn block" data-act="saveRates">Save rates</button></div></div>`})()}`;
 }
 $("v-att").addEventListener("change",e=>{if(e.target.id==="at-date"&&e.target.value){S.attDate=e.target.value;e.target.blur();renderAtt()}});
 $("v-att").addEventListener("click",async e=>{const t=e.target.closest("button");if(!t)return;const day=S.attDate||todayISO();
   if(t.dataset.atd){const d=new Date(day+"T12:00:00");d.setDate(d.getDate()+Number(t.dataset.atd));S.attDate=isoOf(d);return renderAtt()}
   if(t.dataset.att){const b=S.bookings.find(x=>x.id===t.dataset.att);if(!b)return;const att={...(b.att||{})};if(att[day]===t.dataset.v)delete att[day];else att[day]=t.dataset.v;
     t.disabled=true;const ok=await safe(()=>updateBooking(b.id,{att}));if(ok&&leftOf({...b,att})===0&&t.dataset.v!=="x")toast(`${b.childName}'s package is used up — send a renewal link 🔁`);if(S.mode==="demo")renderAtt();return}
+  if(t.dataset.act==="saveRates"){const rates={};document.querySelectorAll("#v-att [data-rate]").forEach(i=>rates[i.dataset.rate]=Math.max(0,+i.value||0));t.disabled=true;await safe(()=>saveRates(rates),"Rates saved ✔");if(S.mode==="demo")renderAtt();return}
   if(t.dataset.catt){const month=day.slice(0,7),ex=S.coachlogs.find(x=>x.month===month),log=structuredClone((ex||{}).log||{}),d={...(log[day]||{})};
     if(d[t.dataset.catt]===t.dataset.v)delete d[t.dataset.catt];else d[t.dataset.catt]=t.dataset.v;log[day]=d;t.disabled=true;await safe(()=>saveCoachLog(month,log));if(S.mode==="demo")renderAtt()}});
 
