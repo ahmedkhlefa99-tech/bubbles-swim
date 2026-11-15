@@ -282,7 +282,7 @@ const DEFAULT_SETTINGS = {
 const DEFAULT_SLOTS = [[0,"09:00"],[0,"10:00"],[0,"11:00"],[6,"09:00"],[6,"10:00"],[6,"11:00"],[1,"17:00"],[1,"18:00"],[3,"17:00"],[3,"18:00"]]
   .map(([d,t])=>({id:"s"+d+t.replace(":",""),day:d,time:t,active:true}));
 
-const S = { payments:[], coachlogs:[], waitlist:[], repMonth:null, attDate:null, renewId:null, renewBk:null, payId:null, payBk:null, settings:structuredClone(DEFAULT_SETTINGS), slots:[], holds:[], bookings:[], mine:{},
+const S = { archive:{}, payments:[], coachlogs:[], waitlist:[], repMonth:null, attDate:null, renewId:null, renewBk:null, payId:null, payBk:null, settings:structuredClone(DEFAULT_SETTINGS), slots:[], holds:[], bookings:[], mine:{},
   mode:"loading", fs:null, F:null, auth:null, A:null, admin:null, tab:"book", adminFilter:"pending", schedCoach:"all",
   form:{step:1, child:{}, pkg:null, perWeek:2, slots:[], coachPref:"any", start:"", payer:"", ref:"", mode:"custom", pref:"", req:[{day:"",time:""},{day:"",time:""}], alt:"", ptype:"p1", c2n:"", c2a:"", sibs:[]}, lastBooking:null };
 
@@ -353,7 +353,7 @@ async function init(){
     openPay();openRenew();
     A.onAuthStateChanged(S.auth,u=>{S.admin=u||null;
       if(S._unBk){S._unBk();S._unBk=null}
-      if(u){S._unBk=F.onSnapshot(F.collection(S.fs,"bookings"),q=>{const all=q.docs.map(d=>({id:d.id,...d.data()}));S.bookings=all.filter(x=>!x.kind);S.payments=all.filter(x=>x.kind==="payment");S.coachlogs=all.filter(x=>x.kind==="coachlog");S.waitlist=all.filter(x=>x.kind==="waitlist");S.rates=all.find(x=>x.kind==="coachrates")||null;render()},e=>{toast("This account is not an admin");});
+      if(u){S._unBk=F.onSnapshot(F.query(F.collection(S.fs,"bookings"),F.where("status","in",["pending","paid","done","cancelled"])),q=>{const all=q.docs.map(d=>({id:d.id,...d.data()}));S.bookings=all.filter(x=>!x.kind);S.payments=all.filter(x=>x.kind==="payment");S.coachlogs=all.filter(x=>x.kind==="coachlog");S.waitlist=all.filter(x=>x.kind==="waitlist");S.rates=all.find(x=>x.kind==="coachrates")||null;render()},e=>{toast("This account is not an admin");});
         if(S.tab==="login")S.tab="admin"}
       else{S.bookings=[];if(["admin","att","sched","settings","report"].includes(S.tab))S.tab="login"}
       render()});
@@ -682,7 +682,7 @@ function card(b,admin){
   if(admin){
     h+=`${b.renewOf?`<div class="kv"><b>🔁 Renewal</b> <span class="muted">— same times as the previous package</span></div>`:""}<div class="kv"><span>Parent:</span> ${esc(b.parentName)} • <a href="https://wa.me/${waNum(b.phone)}" target="_blank" rel="noopener" dir="ltr">${esc(b.phone)}</a></div>
       <div class="kv"><span>Level:</span> ${esc(b.level)} • ${b.gender==="f"?"Female":"Male"}${b.coachPref&&b.coachPref!=="any"?` • prefers ${esc(coachById(b.coachPref)?.name||"")}`:""}</div>
-      ${b.ref?`<div class="kv"><span>Transfer:</span> ${esc(b.payer)}${b.receipt?"":` • ref <b dir="ltr">${esc(b.ref)}</b>`}</div>${b.receipt?`<img src="${b.receipt}" alt="Transfer screenshot" class="rcpt">`:""}`:repPay?`<div class="note" style="background:#dcf5ea;color:#0d6b43">💳 <b>Parent says they paid:</b> ${esc(repPay.payer)}${repPay.receipt?"":` • ref <b dir="ltr">${esc(repPay.ref)}</b>`}<br>Check your bank app, then tap “Confirm payment received”.${repPay.receipt?`<br><img src="${repPay.receipt}" alt="Transfer screenshot" class="rcpt">`:""}</div>`:`<div class="kv"><span>Transfer:</span> not paid yet</div>`}
+      ${b.ref?`<div class="kv"><span>Transfer:</span> ${esc(b.payer)}${b.receipt||b.receiptId?"":` • ref <b dir="ltr">${esc(b.ref)}</b>`}</div>${b.receipt?`<img src="${b.receipt}" alt="Transfer screenshot" class="rcpt">`:b.receiptId?`<button class="btn sm ghost" data-rcpt="${b.receiptId}">🧾 View transfer screenshot</button>`:""}`:repPay?`<div class="note" style="background:#dcf5ea;color:#0d6b43">💳 <b>Parent says they paid:</b> ${esc(repPay.payer)}${repPay.receipt?"":` • ref <b dir="ltr">${esc(repPay.ref)}</b>`}<br>Check your bank app, then tap “Confirm payment received”.${repPay.receipt?`<br><img src="${repPay.receipt}" alt="Transfer screenshot" class="rcpt">`:""}</div>`:`<div class="kv"><span>Transfer:</span> not paid yet</div>`}
       ${isActive(b)&&!(b.slots||[]).length&&(b.reqSlots||[]).length?`<div class="actions"><button class="btn ok block" data-confirmreq="${b.id}">✔ Confirm requested times: ${(b.reqSlots||[]).map(r=>`${DAYS[r.day]} ${fmtTime(r.time)}`).join(" & ")}</button></div><p class="muted" style="margin:4px 0 0">Different time agreed? Add it below instead.</p>`:""}
       ${isActive(b)&&(b.slots||[]).length<Math.min(b.perWeek||2,3)?`<div style="background:#f5fbfd;border-radius:12px;padding:10px;margin-top:8px"><b style="font-size:14px">Confirm a time (${(b.slots||[]).length}/${Math.min(b.perWeek||2,3)})</b>
         <div class="tbl-row"><select style="flex:1.2" id="cd-${b.id}">${DAYS.map((d,i)=>`<option value="${i}">${d}</option>`).join("")}</select><input type="time" style="flex:1" id="ct-${b.id}" value="17:00"><button class="btn sm" data-confirmtime="${b.id}">Add</button></div></div>`:""}
@@ -875,6 +875,9 @@ function renderAdmin(){
 }
 $("v-admin").addEventListener("click",async e=>{
   if(e.target.classList?.contains("rcpt")){e.target.classList.toggle("big");return}
+  {const r=e.target.closest("[data-rcpt]");if(r){r.disabled=true;r.textContent="Loading…";let src=S.archive[r.dataset.rcpt];
+    if(!src&&S.mode==="live"){try{const d=await S.F.getDoc(S.F.doc(S.fs,"bookings",r.dataset.rcpt));src=d.exists()?d.data().receipt:""}catch(err){console.error(err)}}
+    if(src){const img=document.createElement("img");img.src=src;img.className="rcpt big";img.alt="Transfer screenshot";r.replaceWith(img)}else{r.textContent="Screenshot not found";}return}}
   const t=e.target.closest("button");if(!t)return;
   if(t.dataset.confirmreq){const b=S.bookings.find(x=>x.id===t.dataset.confirmreq);if(!b)return;t.disabled=true;
     const ids=[];for(const r of (b.reqSlots||[])){const sid="s"+r.day+String(r.time).replace(":","");ids.push(sid);if(!slotById(sid)){if(!await safe(()=>saveSlot({id:sid,day:r.day,time:r.time,active:true})))return}}
@@ -892,10 +895,12 @@ $("v-admin").addEventListener("click",async e=>{
   if(t.dataset.act==="logout"){if(S.mode==="live")await S.A.signOut(S.auth);S.tab="book";location.hash="";return render()}
   if(t.dataset.st){const b=S.bookings.find(x=>x.id===t.dataset.id);if(!b)return;const st=t.dataset.st,upd={status:st};
     const reps=S.payments.filter(x=>x.bookingId===b.id);
-    if(st==="paid"){upd.paidAt=new Date().toISOString();if(!b.ref&&reps.length){upd.payer=reps.at(-1).payer;upd.ref=reps.at(-1).ref;if(reps.at(-1).receipt)upd.receipt=reps.at(-1).receipt}const miss=(b.slots||[]).filter(s=>!cOf((b.coachBySlot||{})[s]));if(miss.length)upd.coachBySlot={...(b.coachBySlot||{}),...autoAssign(miss,b.coachPref,b.ptype,b.id)}}
+    if(st==="paid"){upd.paidAt=new Date().toISOString();if(!b.ref&&reps.length){upd.payer=reps.at(-1).payer;upd.ref=reps.at(-1).ref;if(reps.at(-1).receipt)upd.receiptId=reps.at(-1).id}const miss=(b.slots||[]).filter(s=>!cOf((b.coachBySlot||{})[s]));if(miss.length)upd.coachBySlot={...(b.coachBySlot||{}),...autoAssign(miss,b.coachPref,b.ptype,b.id)}}
     t.disabled=true;const ok=await safe(()=>updateBooking(b.id,upd),st==="paid"?"Confirmed ✔ — send the parent a WhatsApp message":"Updated");
     if(ok&&st==="paid"&&b.renewOf){const old=S.bookings.find(x=>x.id===b.renewOf);if(old&&old.status==="paid")await safe(()=>updateBooking(old.id,{status:"done"}))}
-    if(ok&&st==="paid")for(const r of reps){if(S.mode==="demo")S.payments=S.payments.filter(x=>x.id!==r.id);else{try{await S.F.deleteDoc(S.F.doc(S.fs,"bookings",r.id))}catch(_){}}}
+    if(ok&&st==="paid")for(const r of reps){const keep=r.id===upd.receiptId; // the screenshot is archived (not loaded with the list), the rest deleted
+      if(S.mode==="demo"){if(keep)S.archive[r.id]=r.receipt;S.payments=S.payments.filter(x=>x.id!==r.id)}
+      else{try{keep?await S.F.updateDoc(S.F.doc(S.fs,"bookings",r.id),{status:"archived"}):await S.F.deleteDoc(S.F.doc(S.fs,"bookings",r.id))}catch(_){}}}
     if(S.mode==="demo")render();return}
   if(t.dataset.del){if(t.dataset.sure)await safe(()=>deleteBooking(t.dataset.del),"Deleted");else{t.dataset.sure="1";t.textContent="Sure? Tap again"}}
 });
