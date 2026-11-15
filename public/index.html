@@ -304,7 +304,6 @@ function renderBook(){
       <div class="tiles"><div class="tile"><span>👶</span>Babies</div><div class="tile"><span>🧒</span>Kids</div><div class="tile"><span>🧑</span>Adults</div></div>
       ${S.mode==="loading"||(S.mode==="live"&&!S._loaded)?`<p class="muted">Loading…</p>`:`<ul class="facts">
         <li>✅ <b>Private sessions</b> or <b>small-group sessions</b> (max 3 swimmers)</li>
-        <li>✅ Coaches: <b>${st.coaches.map(c=>esc(c.name)).join(" & ")}</b></li>
         <li>✅ ${st.sessionMinutes}-minute classes, all levels</li>
       </ul>`}
       <h3 style="margin-bottom:4px">How it works</h3>
