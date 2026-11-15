@@ -110,6 +110,8 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--aqua);bo
 .how div{display:flex;gap:10px;align-items:center;font-size:15px}
 .how i{font-style:normal;flex:0 0 28px;height:28px;border-radius:14px;background:var(--sun);color:var(--deep);font-weight:800;display:flex;align-items:center;justify-content:center}
 .wa{background:#169b62;font-size:18px;padding:16px}
+.rcpt{display:block;max-width:160px;max-height:220px;border-radius:10px;margin-top:8px;border:1px solid var(--line);cursor:zoom-in;object-fit:cover}
+.rcpt.big{max-width:100%;max-height:none;cursor:zoom-out}
 .step-note{background:#fff8e6;border:1.5px dashed #f1d38a;border-radius:14px;padding:12px;margin:12px 0;font-size:15px}
 .hero .t{flex:1}
 .hero h2{margin:0}
@@ -467,8 +469,13 @@ function waMsg(b){const lines=(b.slots||[]).map(s=>`${slotLabel(s)} with ${coach
     :(b.slots||[]).length&&!b.ref?`Hi ${b.parentName}\n${b.childName}'s time at ${S.settings.name} is confirmed\nSchedule:\n${lines}\nFirst class: ${d[0]?fmtDate(d[0].date):""}\n\nPlease pay ${b.amount} EGP here:\n${payLinkFor(b)}`
     :`Hi ${b.parentName}\nAbout ${b.childName}'s booking (${b.package}) for ${b.amount} EGP`}
 const payLinkFor=b=>`https://${location.host}/#pay-${b.id}`;
-async function reportPayment(b,payer,ref){
-  const doc={kind:"payment",bookingId:b.id,status:"pending",childName:String(b.childName||"").slice(0,59),parentName:String(b.parentName||"").slice(0,59),phone:String(b.phone||"").slice(0,19),slots:[],payer:payer.slice(0,80),ref:ref.slice(0,40),amount:b.amount,createdAt:new Date().toISOString()};
+// shrink a screenshot so it fits comfortably in one database document (well under 1 MB)
+function shrinkImage(file){return new Promise((res,rej)=>{const r=new FileReader();r.onerror=rej;r.onload=()=>{const img=new Image();img.onerror=rej;img.onload=()=>{
+  let w=img.width,h=img.height;const max=1100;if(Math.max(w,h)>max){const k=max/Math.max(w,h);w=Math.round(w*k);h=Math.round(h*k)}
+  const c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(img,0,0,w,h);
+  let q=0.7,out=c.toDataURL("image/jpeg",q);while(out.length>600000&&q>0.3){q-=0.1;out=c.toDataURL("image/jpeg",q)}res(out)};img.src=r.result};r.readAsDataURL(file)})}
+async function reportPayment(b,payer,ref,receipt){
+  const doc={kind:"payment",bookingId:b.id,status:"pending",childName:String(b.childName||"").slice(0,59),parentName:String(b.parentName||"").slice(0,59),phone:String(b.phone||"").slice(0,19),slots:[],payer:payer.slice(0,80),ref:ref.slice(0,40),receipt:receipt||"",amount:b.amount,createdAt:new Date().toISOString()};
   if(S.mode==="demo"){S.payments.push({id:rid(),...doc});return}
   await S.F.setDoc(S.F.doc(S.F.collection(S.fs,"bookings")),doc);
 }
@@ -487,18 +494,20 @@ function renderPay(){
     <div class="pay"><b>Pay with InstaPay</b>
       ${st.ipa?`<div class="ipa"><span>${esc(st.ipa)}</span><button class="btn sm ghost" data-act="copyIpaP">Copy</button></div>`:`<p class="muted">The coach will share the payment details on WhatsApp.</p>`}
       ${st.payLink?`<a class="btn sun block" href="${esc(st.payLink)}" target="_blank" rel="noopener">Open InstaPay and pay ${money(b.amount)}</a>`:""}
-      <p class="muted" style="margin:8px 0 0">Transfer the exact amount, then enter the sender's name and the transaction reference shown after the transfer.</p>
+      <p class="muted" style="margin:8px 0 0">Transfer the exact amount, then upload a screenshot of the transfer.</p>
       <label>Name on the sending account</label><input id="p-payer">
-      <label>Transaction reference</label><input id="p-ref" dir="ltr" placeholder="123456789012">
+      <label>Screenshot of the transfer</label><input id="p-shot" type="file" accept="image/*">
+      <img id="p-prev" alt="" style="display:none;max-width:100%;border-radius:12px;margin-top:8px;border:1px solid var(--line)">
     </div>
     <div class="actions"><button class="btn ok block" data-act="paySubmit">I've paid — send to coach</button></div></div>`;
 }
 $("v-pay").addEventListener("click",async e=>{const t=e.target.closest("button");if(!t)return;
   if(t.dataset.act==="copyIpaP"){try{await navigator.clipboard.writeText(S.settings.ipa);toast("Copied ✔")}catch(_){toast(S.settings.ipa)}}
-  if(t.dataset.act==="paySubmit"){const payer=$("p-payer").value.trim(),ref=$("p-ref").value.trim();
-    if(!payer||ref.length<4)return toast("Enter the sender's name and the reference");
-    t.disabled=true;try{await reportPayment(S.payBk,payer,ref);S.paySent=true;try{localStorage.setItem("bubbles_paid_"+S.payBk.id,"1")}catch(_){}document.activeElement?.blur?.();renderPay();scrollTo(0,0)}catch(err){console.error(err);toast("Couldn't send — please try again");t.disabled=false}}
+  if(t.dataset.act==="paySubmit"){const payer=$("p-payer").value.trim(),file=$("p-shot").files[0];
+    if(!payer)return toast("Enter the sender's name");if(!file)return toast("Upload a screenshot of the transfer");
+    t.disabled=true;t.textContent="Sending…";try{const receipt=await shrinkImage(file);await reportPayment(S.payBk,payer,"screenshot",receipt);S.paySent=true;try{localStorage.setItem("bubbles_paid_"+S.payBk.id,"1")}catch(_){}document.activeElement?.blur?.();renderPay();scrollTo(0,0)}catch(err){console.error(err);toast("Couldn't send — please try again");t.disabled=false;t.textContent="I've paid — send to coach"}}
 });
+$("v-pay").addEventListener("change",e=>{if(e.target.id!=="p-shot")return;const f=e.target.files[0],img=$("p-prev");if(!f){img.style.display="none";return}img.src=URL.createObjectURL(f);img.style.display="block"});
 function card(b,admin){
   let [sl,sc]=STATUS[b.status]||STATUS.pending;const repPay=admin?S.payments.filter(x=>x.bookingId===b.id).at(-1):null;
   if(b.status==="pending"&&b.preferredTimes&&!b.ref)sl=(b.slots||[]).length?"Time confirmed — awaiting payment":"Time requested";if(repPay&&b.status==="pending"){sl="Paid — check transfer";sc="s-paid"}const dates=sessionDates(b),now=new Date();now.setHours(0,0,0,0);const next=dates.find(x=>x.date>=now);
@@ -512,7 +521,7 @@ function card(b,admin){
   if(admin){
     h+=`<div class="kv"><span>Parent:</span> ${esc(b.parentName)} • <a href="https://wa.me/${waNum(b.phone)}" target="_blank" rel="noopener" dir="ltr">${esc(b.phone)}</a></div>
       <div class="kv"><span>Level:</span> ${esc(b.level)} • ${b.gender==="f"?"Female":"Male"}${b.coachPref&&b.coachPref!=="any"?` • prefers ${esc(coachById(b.coachPref)?.name||"")}`:""}</div>
-      ${b.ref?`<div class="kv"><span>Transfer:</span> ${esc(b.payer)} • ref <b dir="ltr">${esc(b.ref)}</b></div>`:repPay?`<div class="note" style="background:#dcf5ea;color:#0d6b43">💳 <b>Parent says they paid:</b> ${esc(repPay.payer)} • ref <b dir="ltr">${esc(repPay.ref)}</b><br>Check your bank app, then tap “Confirm payment”.</div>`:`<div class="kv"><span>Transfer:</span> not paid yet</div>`}
+      ${b.ref?`<div class="kv"><span>Transfer:</span> ${esc(b.payer)}${b.receipt?"":` • ref <b dir="ltr">${esc(b.ref)}</b>`}</div>${b.receipt?`<img src="${b.receipt}" alt="Transfer screenshot" class="rcpt">`:""}`:repPay?`<div class="note" style="background:#dcf5ea;color:#0d6b43">💳 <b>Parent says they paid:</b> ${esc(repPay.payer)}${repPay.receipt?"":` • ref <b dir="ltr">${esc(repPay.ref)}</b>`}<br>Check your bank app, then tap “Confirm payment received”.${repPay.receipt?`<br><img src="${repPay.receipt}" alt="Transfer screenshot" class="rcpt">`:""}</div>`:`<div class="kv"><span>Transfer:</span> not paid yet</div>`}
       ${isActive(b)&&!(b.slots||[]).length&&(b.reqSlots||[]).length?`<div class="actions"><button class="btn ok block" data-confirmreq="${b.id}">✔ Confirm requested times: ${(b.reqSlots||[]).map(r=>`${DAYS[r.day]} ${fmtTime(r.time)}`).join(" & ")}</button></div><p class="muted" style="margin:4px 0 0">Different time agreed? Add it below instead.</p>`:""}
       ${isActive(b)&&(b.slots||[]).length<Math.min(b.perWeek||2,3)?`<div style="background:#f5fbfd;border-radius:12px;padding:10px;margin-top:8px"><b style="font-size:14px">Confirm a time (${(b.slots||[]).length}/${Math.min(b.perWeek||2,3)})</b>
         <div class="tbl-row"><select style="flex:1.2" id="cd-${b.id}">${DAYS.map((d,i)=>`<option value="${i}">${d}</option>`).join("")}</select><input type="time" style="flex:1" id="ct-${b.id}" value="17:00"><button class="btn sm" data-confirmtime="${b.id}">Add</button></div></div>`:""}
@@ -571,6 +580,7 @@ function renderAdmin(){
     <div class="actions"><button class="btn ghost block" data-act="logout">Sign out</button></div>`;
 }
 $("v-admin").addEventListener("click",async e=>{
+  if(e.target.classList?.contains("rcpt")){e.target.classList.toggle("big");return}
   const t=e.target.closest("button");if(!t)return;
   if(t.dataset.confirmreq){const b=S.bookings.find(x=>x.id===t.dataset.confirmreq);if(!b)return;t.disabled=true;
     const ids=[];for(const r of (b.reqSlots||[])){const sid="s"+r.day+String(r.time).replace(":","");ids.push(sid);if(!slotById(sid)){if(!await safe(()=>saveSlot({id:sid,day:r.day,time:r.time,active:true})))return}}
@@ -585,7 +595,7 @@ $("v-admin").addEventListener("click",async e=>{
   if(t.dataset.act==="logout"){if(S.mode==="live")await S.A.signOut(S.auth);S.tab="book";location.hash="";return render()}
   if(t.dataset.st){const b=S.bookings.find(x=>x.id===t.dataset.id);if(!b)return;const st=t.dataset.st,upd={status:st};
     const reps=S.payments.filter(x=>x.bookingId===b.id);
-    if(st==="paid"){upd.paidAt=new Date().toISOString();if(!b.ref&&reps.length){upd.payer=reps.at(-1).payer;upd.ref=reps.at(-1).ref}const miss=(b.slots||[]).filter(s=>!cOf((b.coachBySlot||{})[s]));if(miss.length)upd.coachBySlot={...(b.coachBySlot||{}),...autoAssign(miss,b.coachPref,b.ptype,b.id)}}
+    if(st==="paid"){upd.paidAt=new Date().toISOString();if(!b.ref&&reps.length){upd.payer=reps.at(-1).payer;upd.ref=reps.at(-1).ref;if(reps.at(-1).receipt)upd.receipt=reps.at(-1).receipt}const miss=(b.slots||[]).filter(s=>!cOf((b.coachBySlot||{})[s]));if(miss.length)upd.coachBySlot={...(b.coachBySlot||{}),...autoAssign(miss,b.coachPref,b.ptype,b.id)}}
     t.disabled=true;const ok=await safe(()=>updateBooking(b.id,upd),st==="paid"?"Confirmed ✔ — send the parent a WhatsApp message":"Updated");
     if(ok&&st==="paid")for(const r of reps){if(S.mode==="demo")S.payments=S.payments.filter(x=>x.id!==r.id);else{try{await S.F.deleteDoc(S.F.doc(S.fs,"bookings",r.id))}catch(_){}}}
     if(S.mode==="demo")render();return}
