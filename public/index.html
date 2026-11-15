@@ -163,7 +163,7 @@ const DAYS = ["Saturday","Sunday","Monday","Tuesday","Wednesday","Thursday","Fri
 const DEFAULT_SETTINGS = {
   name:"Bubbles Swim Academy", location:"",
   ipa:"", payLink:"", phone:"01014713391", instagram:"",
-  perCoach:1, sessionMinutes:45,
+  perCoach:1, sessionMinutes:60,
   about:"Swimming lessons for every age — from baby swimming to adults. Patient, small classes that build water confidence, safety and real technique at your own pace.",
   coaches:[{id:"c1",name:"Coach Ahmed",gender:"m"},{id:"c2",name:"Assistant Coach",gender:"f"}],
   pkgVersion:6,
@@ -341,19 +341,21 @@ function renderBook(){
       <label>Notes (optional)</label><textarea id="f-notes" rows="2" placeholder="Anything the coach should know">${esc(c.notes)}</textarea>
       <div class="actions"><button class="btn block" data-act="s1next">Next</button></div></div>`;return}
   if(f.step===2){
-    const avail=Object.keys(TYPES).filter(k=>st.packages.some(p=>typeOfPkg(p)===k));if(!avail.includes(f.ptype))f.ptype=avail[0]||"p1";
-    const list=st.packages.filter(p=>typeOfPkg(p)===f.ptype);
+    const order=Object.keys(TYPES),pk=[...st.packages].sort((a,b)=>order.indexOf(typeOfPkg(a))-order.indexOf(typeOfPkg(b))||(a.count||0)-(b.count||0));
+    const optName=p=>{const t=typeOfPkg(p);return t==="sib"?`Siblings — ${p.count||2} together`:TYPES[t].name+(p.minutes&&t!=="baby"?` (${p.minutes} min)`:"")+(pk.filter(x=>typeOfPkg(x)===t).length>1?` · ${p.sessions} sessions`:"")};
+    const sel=f.pkg&&st.packages.find(x=>x.id===f.pkg);if(sel)f.ptype=typeOfPkg(sel);
+    const desc={p1:"One swimmer with the coach.",baby:"One baby with the coach — gentle water confidence for little ones.",p2:"Two swimmers share the session with one coach.",group:"Small groups run with <b>3 swimmers</b>. Book your place now — the group starts once 3 swimmers have joined, and we'll confirm on WhatsApp.",sib:"Brothers and sisters swim together in the same session with the same coach. The price is for all of them together."};
     el.innerHTML=`<div class="card">${steps}<h2>2. Choose your package</h2>
-      <h3>Who's swimming?</h3>
-      <div class="chips">${avail.map(k=>`<button class="chip ${f.ptype===k?"on":""}" data-ty="${k}">${TYPES[k].name}</button>`).join("")}</div>
-      ${f.ptype==="p2"?`<div class="note">Two swimmers share the session with one coach.</div>
-      <div class="row"><div><label>Second swimmer's name</label><input id="f-c2n" value="${esc(f.c2n)}"></div><div><label>Age</label><input id="f-c2a" value="${esc(f.c2a)}" placeholder="e.g. 8 years"></div></div>`:""}
-      ${f.ptype==="group"?`<div class="note">Small groups run with <b>3 swimmers</b>. Book your place now — the group starts once 3 swimmers have joined, and we'll confirm on WhatsApp.</div>`:""}
-      <h3>Package</h3>
-      ${f.ptype==="baby"?`<div class="note">Baby swimming sessions are <b>30 minutes</b>, one baby with the coach.</div>`:""}
-      ${f.ptype==="sib"?`<div class="note">Brothers and sisters swim together in the same session with the same coach. The price is for all of them together.</div>`:""}
-      <div class="pkg">${list.map(p=>`<button class="chip ${f.pkg===p.id?"on":""}" data-pkg="${p.id}"><b>${esc(p.label)}</b><span>${money(p.price)}${TYPES[typeOfPkg(p)].note}${p.minutes?` • ${p.minutes} min`:""}</span></button>`).join("")}</div>
-      ${f.ptype==="sib"&&f.pkg&&pkgOf(f.pkg).type==="sib"?`<h3>The other siblings</h3>${Array.from({length:Math.max(1,(Number(pkgOf(f.pkg).count)||2)-1)},(_,i)=>`<div class="row"><div><label>Sibling ${i+2} name</label><input id="f-sib${i}n" value="${esc((f.sibs[i]||{}).name)}"></div><div><label>Age</label><input id="f-sib${i}a" value="${esc((f.sibs[i]||{}).age)}" placeholder="e.g. 6 years"></div></div>`).join("")}`:""}
+      <label>Package</label>
+      <select id="f-pkgsel"><option value="">— Choose a package —</option>${pk.map(p=>`<option value="${p.id}" ${f.pkg===p.id?"selected":""}>${esc(optName(p))}</option>`).join("")}</select>
+      ${sel?`<div class="pay" style="background:#eef8fb;border-color:#bfe6f0;margin-top:12px">
+        <b style="font-size:17px">${esc(sel.label)}</b>
+        <div class="sum"><span>Sessions</span><b>${sel.sessions}</b></div>
+        <div class="sum"><span>Session length</span><b>${sel.minutes||st.sessionMinutes} minutes</b></div>
+        <div class="sum"><span>Fees</span><span class="total" style="font-size:20px">${money(sel.price)}<small style="font-size:13px;font-weight:600">${TYPES[typeOfPkg(sel)].note}</small></span></div>
+        <p class="muted" style="margin:8px 0 0">${desc[typeOfPkg(sel)]||""}</p></div>`:""}
+      ${sel&&f.ptype==="p2"?`<div class="row"><div><label>Second swimmer's name</label><input id="f-c2n" value="${esc(f.c2n)}"></div><div><label>Age</label><input id="f-c2a" value="${esc(f.c2a)}" placeholder="e.g. 8 years"></div></div>`:""}
+      ${sel&&f.ptype==="sib"?`<h3>The other siblings</h3>${Array.from({length:Math.max(1,(Number(sel.count)||2)-1)},(_,i)=>`<div class="row"><div><label>Sibling ${i+2} name</label><input id="f-sib${i}n" value="${esc((f.sibs[i]||{}).name)}"></div><div><label>Age</label><input id="f-sib${i}a" value="${esc((f.sibs[i]||{}).age)}" placeholder="e.g. 6 years"></div></div>`).join("")}`:""}
       <h3>How many times a week?</h3>
       <div class="chips">${[1,2,3].map(n=>`<button class="chip ${f.perWeek===n?"on":""}" data-pw="${n}">${["Once","Twice","3 times"][n-1]}</button>`).join("")}</div>
       <h3>Preferred coach</h3>
@@ -400,6 +402,8 @@ function keep2(){const f=S.form;if($("f-c2n")){f.c2n=$("f-c2n").value.trim();f.c
   for(let i=0;$("f-sib"+i+"n");i++)f.sibs[i]={name:$("f-sib"+i+"n").value.trim(),age:$("f-sib"+i+"a").value.trim()}}
 function sibsNeeded(){const f=S.form,p=f.pkg&&pkgOf(f.pkg);return f.ptype==="sib"&&p&&p.type==="sib"?Math.max(1,(Number(p.count)||2)-1):0}
 function forceBook(){document.activeElement?.blur?.();renderBook()}
+$("v-book").addEventListener("change",e=>{if(e.target.id!=="f-pkgsel")return;const f=S.form;keep2();f.pkg=e.target.value||null;const p=f.pkg&&pkgOf(f.pkg);
+  if(p){f.ptype=typeOfPkg(p);if(f.ptype==="baby")f.child.level="Baby swimming"}f.slots=[];forceBook()});
 $("v-book").addEventListener("click",async e=>{
   const f=S.form,t=e.target.closest("button");if(!t)return;
   if(t.dataset.pkg){keep2();f.pkg=t.dataset.pkg;f.slots=[];return forceBook()}
