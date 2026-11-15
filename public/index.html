@@ -153,6 +153,7 @@ header.top .logo{animation:bob 3.2s ease-in-out infinite}
 .nw{white-space:nowrap}
 details.info{background:#f5fbfd;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:10px 0}
 details.info summary{font-weight:700;cursor:pointer}details.info p{margin:8px 0 0;font-size:14px;line-height:1.55}
+.daychips .chip.full{border-color:#e6a817}.daychips .chip.full.on{background:#e6a817;border-color:#e6a817}
 .lowleft{color:#c0392b}
 .seg.att button{flex:1;font-size:13px}.seg.att button.on.p{background:#1f9d63;color:#fff}.seg.att button.on.a{background:#c0392b;color:#fff}.seg.att button.on.x{background:#e6a817;color:#fff}
 .daychips{display:flex;flex-wrap:wrap;gap:6px}.daychips .chip{padding:6px 10px;font-size:13px}
@@ -189,6 +190,7 @@ details.info summary{font-weight:700;cursor:pointer}details.info p{margin:8px 0 
   <section id="v-renew" class="hide"></section>
   <section id="v-login" class="hide"></section>
   <section id="v-admin" class="hide"></section>
+  <section id="v-report" class="hide"></section>
   <section id="v-att" class="hide"></section>
   <section id="v-sched" class="hide"></section>
   <section id="v-settings" class="hide"></section>
@@ -263,7 +265,7 @@ const DEFAULT_SETTINGS = {
   perCoach:1, sessionMinutes:60,
   about:"Swimming lessons for every age — from baby swimming to adults. Patient, small classes that build water confidence, safety and real technique at your own pace.",
   coaches:[{id:"c1",name:"Coach Ahmed",gender:"m"},{id:"c2",name:"Assistant Coach",gender:"f"}],
-  locDays:{},
+  locDays:{}, locFull:[],
   bring:"Swimsuit, swim cap, goggles, towel, flip-flops and a water bottle. Babies: a swim diaper.",
   policy:"Can't make it? Tell us at least 24 hours before and we'll book a make-up session.\nA missed session without notice counts as a used session.\nIf we cancel a class (pool closure, weather or coach absence), you get a make-up session.",
   pkgVersion:6,
@@ -280,7 +282,7 @@ const DEFAULT_SETTINGS = {
 const DEFAULT_SLOTS = [[0,"09:00"],[0,"10:00"],[0,"11:00"],[6,"09:00"],[6,"10:00"],[6,"11:00"],[1,"17:00"],[1,"18:00"],[3,"17:00"],[3,"18:00"]]
   .map(([d,t])=>({id:"s"+d+t.replace(":",""),day:d,time:t,active:true}));
 
-const S = { payments:[], coachlogs:[], attDate:null, renewId:null, renewBk:null, payId:null, payBk:null, settings:structuredClone(DEFAULT_SETTINGS), slots:[], holds:[], bookings:[], mine:{},
+const S = { payments:[], coachlogs:[], waitlist:[], repMonth:null, attDate:null, renewId:null, renewBk:null, payId:null, payBk:null, settings:structuredClone(DEFAULT_SETTINGS), slots:[], holds:[], bookings:[], mine:{},
   mode:"loading", fs:null, F:null, auth:null, A:null, admin:null, tab:"book", adminFilter:"pending", schedCoach:"all",
   form:{step:1, child:{}, pkg:null, perWeek:2, slots:[], coachPref:"any", start:"", payer:"", ref:"", mode:"custom", pref:"", req:[{day:"",time:""},{day:"",time:""}], alt:"", ptype:"p1", c2n:"", c2a:"", sibs:[]}, lastBooking:null };
 
@@ -319,6 +321,7 @@ const leftOf=b=>Math.max(0,(Number(b.sessions)||0)-usedOf(b));
 const exOf=b=>Object.values(b.att||{}).filter(v=>v==="x").length;
 function isoOf(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
 const nl2br=t=>esc(t).replace(/\n/g,"<br>");
+const isFull=loc=>(S.settings.locFull||[]).includes(loc);
 const allowedDays=loc=>{const a=(S.settings.locDays||{})[loc];return a&&a.length?a:[0,1,2,3,4,5,6]};
 function sessionDates(b){
   if(!b.start)return[];
@@ -350,9 +353,9 @@ async function init(){
     openPay();openRenew();
     A.onAuthStateChanged(S.auth,u=>{S.admin=u||null;
       if(S._unBk){S._unBk();S._unBk=null}
-      if(u){S._unBk=F.onSnapshot(F.collection(S.fs,"bookings"),q=>{const all=q.docs.map(d=>({id:d.id,...d.data()}));S.bookings=all.filter(x=>!x.kind);S.payments=all.filter(x=>x.kind==="payment");S.coachlogs=all.filter(x=>x.kind==="coachlog");S.rates=all.find(x=>x.kind==="coachrates")||null;render()},e=>{toast("This account is not an admin");});
+      if(u){S._unBk=F.onSnapshot(F.collection(S.fs,"bookings"),q=>{const all=q.docs.map(d=>({id:d.id,...d.data()}));S.bookings=all.filter(x=>!x.kind);S.payments=all.filter(x=>x.kind==="payment");S.coachlogs=all.filter(x=>x.kind==="coachlog");S.waitlist=all.filter(x=>x.kind==="waitlist");S.rates=all.find(x=>x.kind==="coachrates")||null;render()},e=>{toast("This account is not an admin");});
         if(S.tab==="login")S.tab="admin"}
-      else{S.bookings=[];if(["admin","att","sched","settings"].includes(S.tab))S.tab="login"}
+      else{S.bookings=[];if(["admin","att","sched","settings","report"].includes(S.tab))S.tab="login"}
       render()});
   }catch(e){console.error(e);startDemo();toast("Can't reach the database")}
   render();
@@ -382,10 +385,10 @@ async function saveCoachLog(month,log){
   const F=S.F;if(ex){await F.updateDoc(F.doc(S.fs,"bookings",ex.id),{log});return}
   await F.setDoc(F.doc(F.collection(S.fs,"bookings")),{kind:"coachlog",month,log,status:"pending",childName:"-",parentName:"-",phone:"-",slots:[],createdAt:new Date().toISOString()});
 }
-async function saveRates(rates){
-  if(S.mode==="demo"){S.rates={...(S.rates||{}),kind:"coachrates",rates};render();return}
-  const F=S.F;if(S.rates){await F.updateDoc(F.doc(S.fs,"bookings",S.rates.id),{rates});return}
-  await F.setDoc(F.doc(F.collection(S.fs,"bookings")),{kind:"coachrates",rates,status:"pending",childName:"-",parentName:"-",phone:"-",slots:[],createdAt:new Date().toISOString()});
+async function saveRates(rates,expenses){expenses=expenses||(S.rates||{}).expenses||{};
+  if(S.mode==="demo"){S.rates={...(S.rates||{}),kind:"coachrates",rates,expenses};render();return}
+  const F=S.F;if(S.rates){await F.updateDoc(F.doc(S.fs,"bookings",S.rates.id),{rates,expenses});return}
+  await F.setDoc(F.doc(F.collection(S.fs,"bookings")),{kind:"coachrates",rates,expenses,status:"pending",childName:"-",parentName:"-",phone:"-",slots:[],createdAt:new Date().toISOString()});
 }
 function coachPay(month){ // sessions each coach actually taught, from swimmer attendance
   const out={};for(const c of S.settings.coaches)out[c.id]={n:0,list:[]};
@@ -431,10 +434,10 @@ function render(){
   if(S.admin)tabs.push(["admin","Bookings"],["att","Attendance"],["sched","Schedule"],["settings","Settings"]);
   else if(wantsAdmin()||S.tab==="login")tabs.push(["login","Coach login"]);
   if(S.tab==="book"&&wantsAdmin()&&!S._hashed){S._hashed=1;S.tab=S.admin?"admin":"login"}
-  if(!tabs.find(t=>t[0]===S.tab)&&S.tab!=="pay"&&S.tab!=="renew")S.tab="book";
+  if(!tabs.find(t=>t[0]===S.tab)&&S.tab!=="pay"&&S.tab!=="renew"&&!(S.tab==="report"&&S.admin))S.tab="book";
   $("tabs").innerHTML=tabs.map(([k,l])=>`<button class="tab ${S.tab===k?"on":""}" data-tab="${k}">${ICONS[k]}${l}</button>`).join("");
-  for(const k of ["book","mine","pay","renew","login","admin","att","sched","settings"])$("v-"+k).classList.toggle("hide",S.tab!==k);
-  ({book:renderBook,mine:renderMine,pay:renderPay,renew:renderRenew,login:renderLogin,admin:renderAdmin,att:renderAtt,sched:renderSched,settings:renderSettings})[S.tab]();
+  for(const k of ["book","mine","pay","renew","login","admin","report","att","sched","settings"])$("v-"+k).classList.toggle("hide",S.tab!==k);
+  ({book:renderBook,mine:renderMine,pay:renderPay,renew:renderRenew,login:renderLogin,admin:renderAdmin,report:renderReport,att:renderAtt,sched:renderSched,settings:renderSettings})[S.tab]();
 }
 $("tabs").addEventListener("click",e=>{const b=e.target.closest("[data-tab]");if(b){S.tab=b.dataset.tab;render();scrollTo(0,0)}});
 
@@ -443,6 +446,15 @@ function renderBook(){
   const el=$("v-book"),f=S.form,st=S.settings;
   if(document.activeElement&&el.contains(document.activeElement)&&f.step!==3)return; // don't wipe what a parent is typing
   const steps=`<div class="steps">${[1,2,3,4].map(i=>`<i class="${f.step>=i?"on":""}"></i>`).join("")}</div>`;
+  if(f.step==="wl"){el.innerHTML=`<div class="card"><h2>${esc(f.child.location)} is full right now 🫧</h2>
+      <p class="muted">Join the waiting list and the coach will message you on WhatsApp as soon as a place opens for <b>${esc(f.child.childName)}</b>.</p>
+      <label>Package you're interested in</label><select id="wl-pkg">${st.packages.map(p=>`<option>${esc(p.label)}</option>`).join("")}</select>
+      <label>Days and times that suit you</label><textarea id="wl-pref" rows="2" placeholder="e.g. Saturday or Monday after 4 PM"></textarea>
+      <div class="actions"><button class="btn ghost" data-act="wlback">Back</button><button class="btn" style="flex:1" data-act="wlsend">Join the waiting list</button></div></div>`;return}
+  if(f.step==="wldone"&&S.wlDone){const w=S.wlDone,msg=`Waiting list - ${st.name}\nSwimmer: ${w.childName} (${w.age}) - ${w.level}\nParent: ${w.parentName} - ${w.phone}\nLocation: ${w.location}\nPackage: ${w.want}\nTimes: ${w.preferredTimes||"-"}`;
+    el.innerHTML=`<div class="card done-box"><div class="big">📝</div><h2>You're on the waiting list!</h2><p class="muted">We'll message you on WhatsApp as soon as a place opens in <b>${esc(w.location)}</b>.</p>
+      ${st.phone?`<a class="btn wa block" href="https://wa.me/${waNum(st.phone)}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">📲 Let the coach know on WhatsApp</a>`:""}
+      <div class="actions"><button class="btn ghost block" data-act="wlnew">Back to start</button></div></div>`;return}
   if(f.step===5&&S.lastBooking){const b=S.lastBooking,req=!!b.preferredTimes;
     el.innerHTML=`<div class="card done-box"><div class="big">🫧🏊</div><h2>Almost done — one last step!</h2>
       <p class="muted">Your ${req?"request":"booking"} for <b>${esc(b.childName)}</b> is saved. <b>Send it to the coach on WhatsApp</b> so we can ${req?"arrange a time that suits you":"verify your payment and confirm your place"}.</p>
@@ -477,7 +489,7 @@ function renderBook(){
       <div><label>Gender</label><select id="f-gender"><option value="m" ${c.gender!=="f"?"selected":""}>Male</option><option value="f" ${c.gender==="f"?"selected":""}>Female</option></select></div></div>
       <label>Level</label><select id="f-level"><option value="">— Choose level —</option>${["Baby swimming","Beginner — first time","Can swim a little","Intermediate","Advanced / competitive"].map(x=>`<option ${c.level===x?"selected":""}>${x}</option>`).join("")}</select>
       <label>Parent's name <span class="muted">(or yours if booking for yourself)</span></label><input id="f-parent" value="${esc(c.parentName)}" autocomplete="name">
-      <label>Location</label><select id="f-loc"><option value="">— Choose location —</option>${LOCATIONS.map(x=>`<option ${c.location===x?"selected":""}>${x}</option>`).join("")}</select>
+      <label>Location</label><select id="f-loc"><option value="">— Choose location —</option>${LOCATIONS.map(x=>`<option value="${x}" ${c.location===x?"selected":""}>${x}${isFull(x)?" — full (waiting list)":""}</option>`).join("")}</select>
       <label>Mobile number (WhatsApp)</label><input id="f-phone" type="tel" inputmode="tel" dir="ltr" value="${esc(c.phone)}" placeholder="01xxxxxxxxx" autocomplete="tel">
       <div class="actions"><button class="btn block" data-act="s1next">Next</button></div></div>`;return}
   if(f.step===2){
@@ -560,7 +572,13 @@ $("v-book").addEventListener("click",async e=>{
     if(!c.level)return toast("Choose the swimmer's level");
     if(!c.location)return toast("Choose your location");
     if(!/^01[0-9]{9}$/.test(c.phone))return toast("Mobile number must be 11 digits starting with 01");
-    f.step=2;forceBook();scrollTo(0,0)}
+    f.step=isFull(c.location)?"wl":2;forceBook();scrollTo(0,0)}
+  if(a==="wlsend"){const pref=$("wl-pref").value.trim(),c=f.child;
+    const w={kind:"waitlist",status:"pending",childName:c.childName.slice(0,59),age:c.age.slice(0,20),gender:c.gender,level:c.level,parentName:c.parentName.slice(0,59),phone:c.phone,location:c.location,want:$("wl-pkg").value,preferredTimes:pref.slice(0,300),slots:[],createdAt:new Date().toISOString()};
+    t.disabled=true;try{if(S.mode==="demo"){S.waitlist.push({id:rid(),...w})}else{await S.F.setDoc(S.F.doc(S.F.collection(S.fs,"bookings")),w)}S.wlDone=w;f.step="wldone";forceBook();scrollTo(0,0)}
+    catch(err){console.error(err);toast("Couldn't send — please try again");t.disabled=false}}
+  if(a==="wlback"){f.step=1;forceBook()}
+  if(a==="wlnew"){S.form.step=1;S.form.child={};S.wlDone=null;forceBook()}
   if(a==="s2next"){keep2();if(f.ptype==="p2"&&(!f.c2n||!f.c2a))return toast("Enter the second swimmer's name and age");
     {const n=sibsNeeded();for(let i=0;i<n;i++){const x=f.sibs[i]||{};if(!x.name||!x.age)return toast("Enter each sibling's name and age")}}if(!f.pkg)return toast("Choose a package");f.step=3;forceBook();scrollTo(0,0)}
   if(a==="s3next"){f.start=$("f-start").value;if(!f.start)return toast("Choose a start date");
@@ -711,6 +729,61 @@ $("v-renew").addEventListener("click",async e=>{const t=e.target.closest("[data-
   try{const id=await createBooking(nb);try{localStorage.setItem("bubbles_renew_"+b.id,id)}catch(_){}location.hash="#pay-"+id}
   catch(err){console.error(err);toast("Couldn't renew — please try again");t.disabled=false;t.textContent="🔁 Renew & go to payment"}});
 
+/* ---------- admin: monthly report ---------- */
+function swimmersOf(b){return 1+(b.child2Name?1:0)+(b.siblings||[]).length}
+function reportData(month){
+  const B=S.bookings,rates=(S.rates||{}).rates||{},pay=coachPay(month);
+  const paid=B.filter(b=>(b.status==="paid"||b.status==="done")&&(b.paidAt||"").startsWith(month));
+  const revenue=paid.reduce((a,b)=>a+Number(b.amount||0),0);
+  const coaches=S.settings.coaches.map(c=>({name:c.name,n:pay[c.id].n,rate:Number(rates[c.id])||0,sum:pay[c.id].n*(Number(rates[c.id])||0)}));
+  const coachTotal=coaches.reduce((a,c)=>a+c.sum,0),other=Number(((S.rates||{}).expenses||{})[month])||0;
+  const active=B.filter(b=>(b.status==="paid"||b.status==="done")&&sessionDates(b).some(x=>isoOf(x.date).startsWith(month)));
+  const locs=LOCATIONS.map(l=>{const a=active.filter(b=>b.location===l);return {l,swimmers:a.reduce((x,b)=>x+swimmersOf(b),0),bookings:a.length,rev:paid.filter(b=>b.location===l).reduce((x,b)=>x+Number(b.amount||0),0)}});
+  const noLoc=active.filter(b=>!LOCATIONS.includes(b.location));if(noLoc.length)locs.push({l:"Not set",swimmers:noLoc.reduce((x,b)=>x+swimmersOf(b),0),bookings:noLoc.length,rev:paid.filter(b=>!LOCATIONS.includes(b.location)).reduce((x,b)=>x+Number(b.amount||0),0)});
+  const pk={};for(const b of paid){pk[b.package]=pk[b.package]||{n:0,sum:0};pk[b.package].n++;pk[b.package].sum+=Number(b.amount||0)}
+  let pres=0,abs=0,exc=0;for(const b of B)for(const [d,v] of Object.entries(b.att||{}))if(d.startsWith(month)){v==="p"?pres++:v==="a"?abs++:exc++}
+  return {paid,revenue,coaches,coachTotal,other,net:revenue-coachTotal-other,locs,pk,newB:paid.filter(b=>!b.renewOf).length,ren:paid.filter(b=>b.renewOf).length,
+    swimmers:active.reduce((x,b)=>x+swimmersOf(b),0),pres,abs,exc,classes:coaches.reduce((a,c)=>a+c.n,0)};
+}
+function renderReport(){
+  const el=$("v-report");if(document.activeElement?.id==="rp-other")return;
+  const month=S.repMonth||todayISO().slice(0,7),R=reportData(month),mName=new Date(month+"-15T12:00:00").toLocaleDateString("en-GB",{month:"long",year:"numeric"});
+  const shift=k=>{const d=new Date(month+"-15T12:00:00");d.setMonth(d.getMonth()+k);return isoOf(d).slice(0,7)};
+  el.innerHTML=`<div class="card"><div class="tbl-row"><button class="btn sm ghost" data-rm="${shift(-1)}">◀</button><h2 style="flex:1;text-align:center;margin:0">${mName}</h2><button class="btn sm ghost" data-rm="${shift(1)}">▶</button></div></div>
+    <div class="stats">
+      <div class="stat"><b>${money(R.revenue)}</b><span>Revenue (${R.paid.length} payments)</span></div>
+      <div class="stat"><b>${money(R.coachTotal)}</b><span>Coach pay</span></div>
+      <div class="stat"><b>${money(R.other)}</b><span>Other expenses</span></div>
+      <div class="stat"><b style="color:${R.net<0?"#c0392b":"#1f9d63"}">${money(R.net)}</b><span>Net profit</span></div></div>
+    <div class="card"><h2>Swimmers by location</h2>
+      ${R.locs.map(x=>`<div class="sum"><span>📍 ${esc(x.l)}</span><b>${x.swimmers} swimmer${x.swimmers===1?"":"s"} • ${money(x.rev)}</b></div>`).join("")}
+      <div class="sum"><span>Total swimmers</span><b>${R.swimmers}</b></div>
+      <div class="sum"><span>New bookings / renewals</span><b>${R.newB} / ${R.ren}</b></div></div>
+    <div class="card"><h2>Coach pay</h2>
+      ${R.coaches.map(c=>`<div class="sum"><span>${esc(c.name)}</span><b>${c.n} × ${money(c.rate)} = ${money(c.sum)}</b></div>`).join("")}
+      <p class="muted" style="font-size:13px">Rates are set in Attendance → Coach pay.</p></div>
+    <div class="card"><h2>Other expenses</h2><p class="muted">Pool rent, equipment, transport… total for this month.</p>
+      <div class="tbl-row"><input type="number" min="0" id="rp-other" value="${R.other||""}" placeholder="0" style="flex:1"><span>EGP</span><button class="btn sm" data-act="saveOther">Save</button></div></div>
+    <div class="card"><h2>Packages sold</h2>${Object.keys(R.pk).length?Object.entries(R.pk).map(([k,v])=>`<div class="sum"><span>${esc(k)}</span><b>${v.n} • ${money(v.sum)}</b></div>`).join(""):`<div class="empty">No payments this month.</div>`}</div>
+    <div class="card"><h2>Attendance</h2>
+      <div class="sum"><span>Classes taught</span><b>${R.classes}</b></div>
+      <div class="sum"><span>Present / absent / excused</span><b>${R.pres} / ${R.abs} / ${R.exc}</b></div></div>
+    <div class="actions"><button class="btn block" data-act="csv">⬇ Download for Excel</button></div>
+    <div class="actions"><button class="btn ghost block" data-act="backAdmin">← Back to bookings</button></div>`;
+}
+$("v-report").addEventListener("click",async e=>{const t=e.target.closest("button");if(!t)return;const month=S.repMonth||todayISO().slice(0,7);
+  if(t.dataset.rm){S.repMonth=t.dataset.rm;return renderReport()}
+  if(t.dataset.act==="backAdmin"){S.tab="admin";render();return}
+  if(t.dataset.act==="saveOther"){const v=Math.max(0,+$("rp-other").value||0);$("rp-other").blur();const ex={...((S.rates||{}).expenses||{}),[month]:v};t.disabled=true;
+    const ok=await safe(()=>saveRates((S.rates||{}).rates||{},ex),"Saved ✔");if(S.mode==="demo"||!ok)renderReport();return}
+  if(t.dataset.act==="csv"){const R=reportData(month),q=x=>`"${String(x??"").replace(/"/g,'""')}"`,L=[];
+    L.push(["Bubbles Swim Academy - report",month].map(q).join(","),"",["Revenue",R.revenue].map(q).join(","),["Coach pay",R.coachTotal].map(q).join(","),["Other expenses",R.other].map(q).join(","),["Net profit",R.net].map(q).join(","),"");
+    L.push(["Location","Swimmers","Revenue"].map(q).join(","));for(const x of R.locs)L.push([x.l,x.swimmers,x.rev].map(q).join(","));L.push("");
+    L.push(["Coach","Sessions","Rate","Pay"].map(q).join(","));for(const c of R.coaches)L.push([c.name,c.n,c.rate,c.sum].map(q).join(","));L.push("");
+    L.push(["Paid on","Swimmer","Parent","Phone","Location","Package","Amount","Renewal"].map(q).join(","));
+    for(const b of R.paid)L.push([(b.paidAt||"").slice(0,10),b.childName,b.parentName,b.phone,b.location||"",b.package,b.amount,b.renewOf?"yes":""].map(q).join(","));
+    const blob=new Blob(["\ufeff"+L.join("\r\n")],{type:"text/csv;charset=utf-8"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`bubbles-report-${month}.csv`;document.body.appendChild(a);a.click();a.remove()}});
+
 /* ---------- admin: attendance ---------- */
 function renderAtt(){
   const el=$("v-att");if(document.activeElement?.dataset?.rate)return;
@@ -782,13 +855,21 @@ function renderAdmin(){
       <div class="stat"><b>${money(pend.reduce((a,b)=>a+Number(b.amount||0),0))}</b><span>${pend.length} transfers to verify</span></div>
       <div class="stat"><b>${B.filter(b=>b.status==="paid").length}</b><span>Active swimmers</span></div>
       <div class="stat"><b>${total?Math.round(used/total*100):0}%</b><span>Slots booked (${used}/${total})</span></div></div>
+    <div class="actions" style="margin-top:0"><button class="btn block sun" data-act="openReport">📊 Monthly report</button></div>
+    ${S.waitlist.length?`<div class="note">📝 ${S.waitlist.length} on the waiting list.</div>`:""}
     ${noCoach?`<div class="note warn">⚠ ${noCoach} booking(s) need a coach assigned.</div>`:""}
     ${S.payments.length?`<div class="note" style="background:#dcf5ea;color:#0d6b43">💳 ${S.payments.length} payment(s) reported by parents — check your bank app and confirm.</div>`:""}
     ${B.filter(b=>isActive(b)&&b.preferredTimes&&!(b.slots||[]).length).length?`<div class="note warn">🕐 ${B.filter(b=>isActive(b)&&b.preferredTimes&&!(b.slots||[]).length).length} request(s) asking for their own time — message them and add a slot.</div>`:""}
     ${!S.settings.ipa?`<div class="note warn">Add your InstaPay address (IPA) in Settings so parents can pay.</div>`:""}
     <div class="card"><h2>Bookings</h2>
-      <div class="seg">${[["pending","Awaiting payment"],["paid","Confirmed"],["closed","Finished/cancelled"],["all","All"]].map(([k,l])=>`<button class="${F===k?"on":""}" data-f="${k}">${l}</button>`).join("")}</div>
-      ${list.length?list.map(b=>card(b,true)).join(""):`<div class="empty">No bookings here.</div>`}
+      <div class="seg">${[["pending","Awaiting payment"],["paid","Confirmed"],["closed","Finished/cancelled"],["all","All"],["wait",`Waiting list${S.waitlist.length?" ("+S.waitlist.length+")":""}`]].map(([k,l])=>`<button class="${F===k?"on":""}" data-f="${k}">${l}</button>`).join("")}</div>
+      ${F==="wait"?(S.waitlist.length?[...S.waitlist].sort((a,b)=>(a.createdAt||"").localeCompare(b.createdAt||"")).map((w,i)=>`<div class="bk"><div class="hd"><b>${i+1}. ${esc(w.childName)} <span class="muted">(${esc(w.age)})</span></b><span class="status s-pending">Waiting</span></div>
+        <div class="kv"><span>Location:</span> <b>📍 ${esc(w.location)}</b> • ${esc(w.want||"")}</div>
+        <div class="kv"><span>Times:</span> ${esc(w.preferredTimes||"-")}</div>
+        <div class="kv"><span>Parent:</span> ${esc(w.parentName)} • <a href="https://wa.me/${waNum(w.phone)}" target="_blank" rel="noopener" dir="ltr">${esc(w.phone)}</a> • ${esc(w.level)}</div>
+        <div class="kv"><span>Joined:</span> ${w.createdAt?fmtDate(new Date(w.createdAt)):"-"}</div>
+        <div class="actions"><a class="btn sm ok" href="https://wa.me/${waNum(w.phone)}?text=${encodeURIComponent(`Hi ${w.parentName}\nGood news! A place has opened at ${S.settings.name} in ${w.location} for ${w.childName}.\nBook here:\nhttps://${location.host}/`)}" target="_blank" rel="noopener">📲 A place is free — tell them</a><button class="btn sm bad" data-delw="${w.id}">Remove</button></div></div>`).join(""):`<div class="empty">Nobody on the waiting list.</div>`)
+      :list.length?list.map(b=>card(b,true)).join(""):`<div class="empty">No bookings here.</div>`}
       <div class="note">Before “Confirm payment”, check your bank app that the reference and amount actually arrived.</div></div>
     <div class="actions"><button class="btn ghost block" data-act="logout">Sign out</button></div>`;
 }
@@ -805,6 +886,9 @@ $("v-admin").addEventListener("click",async e=>{
     if(!slotById(sid)){if(!await safe(()=>saveSlot({id:sid,day,time,active:true})))return;}
     await safe(()=>updateBooking(b.id,{slots:[...(b.slots||[]),sid],coachBySlot:{...(b.coachBySlot||{}),...autoAssign([sid],b.coachPref,b.ptype,b.id)}}),"Time added ✔");return}
   if(t.dataset.f){S.adminFilter=t.dataset.f;return renderAdmin()}
+  if(t.dataset.act==="openReport"){S.tab="report";render();scrollTo(0,0);return}
+  if(t.dataset.delw){if(!t.dataset.sure){t.dataset.sure="1";t.textContent="Sure? Tap again";return}
+    if(S.mode==="demo"){S.waitlist=S.waitlist.filter(x=>x.id!==t.dataset.delw);return renderAdmin()}await safe(()=>S.F.deleteDoc(S.F.doc(S.fs,"bookings",t.dataset.delw)),"Removed");return}
   if(t.dataset.act==="logout"){if(S.mode==="live")await S.A.signOut(S.auth);S.tab="book";location.hash="";return render()}
   if(t.dataset.st){const b=S.bookings.find(x=>x.id===t.dataset.id);if(!b)return;const st=t.dataset.st,upd={status:st};
     const reps=S.payments.filter(x=>x.bookingId===b.id);
@@ -815,7 +899,7 @@ $("v-admin").addEventListener("click",async e=>{
     if(S.mode==="demo")render();return}
   if(t.dataset.del){if(t.dataset.sure)await safe(()=>deleteBooking(t.dataset.del),"Deleted");else{t.dataset.sure="1";t.textContent="Sure? Tap again"}}
 });
-$("v-settings").addEventListener("click",e=>{const t=e.target.closest("[data-ld]");if(t)t.classList.toggle("on")});
+$("v-settings").addEventListener("click",e=>{const t=e.target.closest("[data-ld],[data-full]");if(t)t.classList.toggle("on")});
 $("v-settings").addEventListener("change",e=>{if(e.target.id!=="st-pksel")return;S.pkSel=e.target.value;document.querySelectorAll("#st-pkgs [data-p]").forEach(r=>r.style.display=r.dataset.p===S.pkSel?"":"none")});
 $("v-settings").addEventListener("input",e=>{const r=e.target.closest("#st-pkgs [data-p]");if(!r)return;const o=$("st-pksel")?.querySelector(`option[value="${r.dataset.p}"]`);if(o)o.textContent=`${r.querySelector("[data-k=label]").value.trim()||"New package"} — ${+r.querySelector("[data-k=price]").value||0} EGP`});
 $("v-admin").addEventListener("change",async e=>{
@@ -851,7 +935,7 @@ function renderSettings(){
       <div class="row"><div><label>Class length (minutes)</label><input id="st-min" type="number" value="${esc(st.sessionMinutes)}"></div>
       <div><label>Swimmers per coach per slot</label><input id="st-per" type="number" min="1" max="6" value="${esc(st.perCoach)}"></div></div></div>
     <div class="card"><h2>Locations & class days</h2><p class="muted">Tap the days each location has classes. Parents can only pick these days. None selected = every day.</p>
-      ${LOCATIONS.map(l=>{const a=(st.locDays||{})[l]||[];return `<label>${esc(l)}</label><div class="chips daychips" data-loc="${esc(l)}">${DAYS.map((d,k)=>`<button type="button" class="chip ${a.includes(k)?"on":""}" data-ld="${k}">${d.slice(0,3)}</button>`).join("")}</div>`}).join("")}</div>
+      ${LOCATIONS.map(l=>{const a=(st.locDays||{})[l]||[];return `<label>${esc(l)}</label><div class="chips daychips" data-loc="${esc(l)}">${DAYS.map((d,k)=>`<button type="button" class="chip ${a.includes(k)?"on":""}" data-ld="${k}">${d.slice(0,3)}</button>`).join("")}<button type="button" class="chip full ${isFull(l)?"on":""}" data-full="${esc(l)}">Full → waiting list</button></div>`}).join("")}</div>
     <div class="card"><h2>Info for parents</h2>
       <label>What to bring</label><textarea id="st-bring" rows="2">${esc(st.bring)}</textarea>
       <label>Absence & make-up policy (one rule per line)</label><textarea id="st-policy" rows="4">${esc(st.policy)}</textarea></div>
@@ -884,6 +968,7 @@ function readSettings(){const st=structuredClone(S.settings),v=id=>$(id).value.t
   st.coaches=[...document.querySelectorAll("#st-coaches [data-c]")].map(r=>({id:r.dataset.c,name:r.querySelector("[data-k=name]").value.trim()||"Coach",gender:r.querySelector("[data-k=gender]").value}));
   st.packages=[...document.querySelectorAll("#st-pkgs [data-p]")].map(r=>({id:r.dataset.p,type:r.querySelector("[data-k=type]").value,count:Math.max(0,+r.querySelector("[data-k=count]").value||0),minutes:Math.max(0,+r.querySelector("[data-k=minutes]").value||0),label:r.querySelector("[data-k=label]").value.trim()||"Package",sessions:Math.max(1,+r.querySelector("[data-k=sessions]").value||1),price:Math.max(0,+r.querySelector("[data-k=price]").value||0)}));
   st.locDays={};document.querySelectorAll("#v-settings .daychips").forEach(r=>{st.locDays[r.dataset.loc]=[...r.querySelectorAll(".chip.on")].map(x=>+x.dataset.ld)});
+  st.locFull=[...document.querySelectorAll("#v-settings [data-full].on")].map(x=>x.dataset.full);
   st.bring=v("st-bring");st.policy=v("st-policy");
   st.pkgVersion=6;return st}
 function reSettings(){document.activeElement?.blur?.();renderSettings()}
