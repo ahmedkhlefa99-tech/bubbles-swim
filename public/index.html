@@ -331,7 +331,7 @@ function renderBook(){
     el.innerHTML=`<div class="card intro"><h2>Learn to swim with confidence 🫧</h2>
       ${st.about?`<p class="muted" style="margin:0">${esc(st.about)}</p>`:""}
       <div class="tiles"><div class="tile"><span>👶</span>Babies</div><div class="tile"><span>🧒</span>Kids</div><div class="tile"><span>🧑</span>Adults</div></div>
-      <div class="locs">📍 We teach in <b>Rehab</b> · <b>El Shorouk</b> · <b>New Cairo</b></div>
+      <div class="locs">📍 <b>Our locations:</b> Rehab · El Shorouk · El Tagamoa</div>
       ${S.mode==="loading"||(S.mode==="live"&&!S._loaded)?`<p class="muted">Loading…</p>`:`<ul class="facts">
         <li>✅ <b>Private sessions</b> — for 1 or 2 swimmers</li>
         <li>✅ <b>Small groups</b> of 3 swimmers</li>
@@ -460,7 +460,7 @@ $("v-book").addEventListener("click",async e=>{
 
 /* ---------- booking cards ---------- */
 const STATUS={pending:["Awaiting payment check","s-pending"],paid:["Confirmed ✔","s-paid"],cancelled:["Cancelled","s-cancelled"],done:["Package finished","s-done"]};
-const LOCATIONS=["Rehab","El Shorouk","New Cairo (Fifth Settlement)"];
+const LOCATIONS=["Rehab","El Shorouk","El Tagamoa"];
 function bookingMsg(b){
   const L=[`New ${b.preferredTimes?"booking request":"booking"} - ${S.settings.name}`,`Swimmer: ${b.childName} (${b.age}) — ${b.level}`,...(b.child2Name?[`Second swimmer: ${b.child2Name} (${b.child2Age})`]:[]),...((b.siblings||[]).length?[`Siblings: ${b.siblings.join(", ")}`]:[]),`Parent: ${b.parentName} — ${b.phone}`,...(b.location?[`Location: ${b.location}`]:[]),`Package: ${b.package} — ${b.sessionType||"Private"} (${b.amount} EGP${b.ptype==="group"?" per swimmer":b.ptype==="sib"?" for all siblings":""})`];
   if(b.preferredTimes)L.push(`Times a week: ${b.perWeek||2}`,`Requested times: ${b.preferredTimes}`);else L.push(`Times: ${(b.slots||[]).map(slotLabel).join(", ")}`);
