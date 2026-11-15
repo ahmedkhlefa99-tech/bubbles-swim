@@ -356,14 +356,12 @@ function renderBook(){
       <select id="f-pkgsel"><option value="">— Choose a package —</option>${pk.map(p=>`<option value="${p.id}" ${f.pkg===p.id?"selected":""}>${esc(optName(p))}</option>`).join("")}</select>
       ${sel?`<div class="pay" style="background:#eef8fb;border-color:#bfe6f0;margin-top:12px">
         <b style="font-size:17px">${esc(sel.label)}</b>
-        <div class="sum"><span>Sessions</span><b>${sel.sessions}</b></div>
+        <div class="sum"><span>Sessions</span><b>${sel.sessions} · 2 per week</b></div>
         <div class="sum"><span>Session length</span><b>${sel.minutes||st.sessionMinutes} minutes</b></div>
         <div class="sum"><span>Fees</span><span class="total" style="font-size:20px">${money(sel.price)}<small style="font-size:13px;font-weight:600">${TYPES[typeOfPkg(sel)].note}</small></span></div>
         <p class="muted" style="margin:8px 0 0">${desc[typeOfPkg(sel)]||""}</p></div>`:""}
       ${sel&&f.ptype==="p2"?`<div class="row"><div><label>Second swimmer's name</label><input id="f-c2n" value="${esc(f.c2n)}"></div><div><label>Age</label><input id="f-c2a" value="${esc(f.c2a)}" placeholder="e.g. 8 years"></div></div>`:""}
       ${sel&&f.ptype==="sib"?`<h3>The other siblings</h3>${Array.from({length:Math.max(1,(Number(sel.count)||2)-1)},(_,i)=>`<div class="row"><div><label>Sibling ${i+2} name</label><input id="f-sib${i}n" value="${esc((f.sibs[i]||{}).name)}"></div><div><label>Age</label><input id="f-sib${i}a" value="${esc((f.sibs[i]||{}).age)}" placeholder="e.g. 6 years"></div></div>`).join("")}`:""}
-      <h3>How many times a week?</h3>
-      <div class="chips">${[2,3].map(n=>`<button class="chip ${f.perWeek===n?"on":""}" data-pw="${n}">${n===2?"Twice":"3 times"}</button>`).join("")}</div>
       <div class="actions"><button class="btn ghost" data-act="back">Back</button><button class="btn" style="flex:1" data-act="s2next" ${f.pkg?"":"disabled"}>Next</button></div></div>`;return}
   if(f.step===3){
     const act=S.slots.filter(s=>s.active!==false).sort((a,b)=>a.day-b.day||a.time.localeCompare(b.time));
