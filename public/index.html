@@ -134,6 +134,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--aqua);bo
 <main class="wrap">
   <section id="v-book"></section>
   <section id="v-mine" class="hide"></section>
+  <section id="v-pay" class="hide"></section>
   <section id="v-login" class="hide"></section>
   <section id="v-admin" class="hide"></section>
   <section id="v-sched" class="hide"></section>
@@ -180,7 +181,7 @@ const DEFAULT_SETTINGS = {
 const DEFAULT_SLOTS = [[0,"09:00"],[0,"10:00"],[0,"11:00"],[6,"09:00"],[6,"10:00"],[6,"11:00"],[1,"17:00"],[1,"18:00"],[3,"17:00"],[3,"18:00"]]
   .map(([d,t])=>({id:"s"+d+t.replace(":",""),day:d,time:t,active:true}));
 
-const S = { settings:structuredClone(DEFAULT_SETTINGS), slots:[], holds:[], bookings:[], mine:{},
+const S = { payments:[], payId:null, payBk:null, settings:structuredClone(DEFAULT_SETTINGS), slots:[], holds:[], bookings:[], mine:{},
   mode:"loading", fs:null, F:null, auth:null, A:null, admin:null, tab:"book", adminFilter:"pending", schedCoach:"all",
   form:{step:1, child:{}, pkg:null, perWeek:2, slots:[], coachPref:"any", start:"", payer:"", ref:"", mode:"custom", pref:"", ptype:"p1", c2n:"", c2a:"", sibs:[]}, lastBooking:null };
 
@@ -241,9 +242,10 @@ async function init(){
     F.onSnapshot(F.collection(S.fs,"slots"),q=>{S.slots=q.docs.map(d=>({id:d.id,...d.data()}));render()},e=>console.warn(e));
     F.onSnapshot(F.collection(S.fs,"holds"),q=>{S.holds=q.docs.map(d=>({id:d.id,...d.data()}));render()},e=>console.warn(e));
     for(const id of myIds())watchMine(id);
+    openPay();
     A.onAuthStateChanged(S.auth,u=>{S.admin=u||null;
       if(S._unBk){S._unBk();S._unBk=null}
-      if(u){S._unBk=F.onSnapshot(F.collection(S.fs,"bookings"),q=>{S.bookings=q.docs.map(d=>({id:d.id,...d.data()}));render()},e=>{toast("This account is not an admin");});
+      if(u){S._unBk=F.onSnapshot(F.collection(S.fs,"bookings"),q=>{const all=q.docs.map(d=>({id:d.id,...d.data()}));S.bookings=all.filter(x=>x.kind!=="payment");S.payments=all.filter(x=>x.kind==="payment");render()},e=>{toast("This account is not an admin");});
         if(S.tab==="login")S.tab="admin"}
       else{S.bookings=[];if(["admin","sched","settings"].includes(S.tab))S.tab="login"}
       render()});
@@ -251,7 +253,7 @@ async function init(){
   render();
 }
 function watchMine(id){S.F.onSnapshot(S.F.doc(S.fs,"bookings",id),s=>{if(s.exists()){S.mine[id]={id,...s.data()};render()}},()=>{})}
-function startDemo(){S.mode="demo";S.slots=structuredClone(DEFAULT_SLOTS);S.admin={email:"demo"};render()}
+function startDemo(){S.mode="demo";S.slots=structuredClone(DEFAULT_SLOTS);S.admin={email:"demo"};render();openPay()}
 
 async function createBooking(b){
   const hold={slots:b.slots,status:"pending",coachBySlot:b.coachBySlot};
@@ -284,7 +286,11 @@ const ICONS={
   login:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>'
 };
 function wantsAdmin(){return location.hash==="#admin"}
-window.addEventListener("hashchange",()=>{if(wantsAdmin()){S.tab=S.admin?"admin":"login";render()}});
+const payHash=()=>{const m=location.hash.match(/^#pay-([A-Za-z0-9]{6,40})$/);return m?m[1]:null};
+function openPay(){const id=payHash();if(!id)return;S.tab="pay";if(S.payId===id)return render();S.payId=id;S.payBk=null;S.paySent=(()=>{try{return !!localStorage.getItem("bubbles_paid_"+id)}catch(e){return false}})();
+  if(S.mode==="live"){S.F.onSnapshot(S.F.doc(S.fs,"bookings",id),d=>{S.payBk=d.exists()?{id,...d.data()}:{missing:true};render()},()=>{S.payBk={missing:true};render()})}
+  else{S.payBk=S.bookings.find(b=>b.id===id)||{missing:true}}render()}
+window.addEventListener("hashchange",()=>{if(payHash())return openPay();if(wantsAdmin()){S.tab=S.admin?"admin":"login";render()}});
 function render(){
   const st=S.settings;
   $("appName").textContent=st.name||"Bubbles Swim Academy";$("appLoc").textContent=st.location||"Swimming for every age";
@@ -295,10 +301,10 @@ function render(){
   if(S.admin)tabs.push(["admin","Bookings"],["sched","Schedule"],["settings","Settings"]);
   else if(wantsAdmin()||S.tab==="login")tabs.push(["login","Coach login"]);
   if(S.tab==="book"&&wantsAdmin()&&!S._hashed){S._hashed=1;S.tab=S.admin?"admin":"login"}
-  if(!tabs.find(t=>t[0]===S.tab))S.tab="book";
+  if(!tabs.find(t=>t[0]===S.tab)&&S.tab!=="pay")S.tab="book";
   $("tabs").innerHTML=tabs.map(([k,l])=>`<button class="tab ${S.tab===k?"on":""}" data-tab="${k}">${ICONS[k]}${l}</button>`).join("");
-  for(const k of ["book","mine","login","admin","sched","settings"])$("v-"+k).classList.toggle("hide",S.tab!==k);
-  ({book:renderBook,mine:renderMine,login:renderLogin,admin:renderAdmin,sched:renderSched,settings:renderSettings})[S.tab]();
+  for(const k of ["book","mine","pay","login","admin","sched","settings"])$("v-"+k).classList.toggle("hide",S.tab!==k);
+  ({book:renderBook,mine:renderMine,pay:renderPay,login:renderLogin,admin:renderAdmin,sched:renderSched,settings:renderSettings})[S.tab]();
 }
 $("tabs").addEventListener("click",e=>{const b=e.target.closest("[data-tab]");if(b){S.tab=b.dataset.tab;render();scrollTo(0,0)}});
 
@@ -312,7 +318,7 @@ function renderBook(){
       <p class="muted">Your ${req?"request":"booking"} for <b>${esc(b.childName)}</b> is saved. <b>Send it to the coach on WhatsApp</b> so we can ${req?"arrange a time that suits you":"verify your payment and confirm your place"}.</p>
       ${st.phone?`<a class="btn wa block" href="https://wa.me/${waNum(st.phone)}?text=${encodeURIComponent(bookingMsg(b))}" target="_blank" rel="noopener">📲 Send to coach on WhatsApp</a>`:""}
       <div class="step-note">The message is ready — just tap <b>Send</b> in WhatsApp.</div>
-      ${req&&st.ipa?`<div class="note"><b>Paying:</b> once the coach confirms your time, transfer ${money(b.amount)} with InstaPay to <b dir="ltr">${esc(st.ipa)}</b> and send the receipt on WhatsApp.</div>`:""}
+      ${req?`<div class="note"><b>Paying:</b> once the coach confirms your time, you'll get a payment link on WhatsApp. Pay with InstaPay there — the coach sees it straight away.</div>`:""}
       <div class="sum"><span>Amount</span><b>${money(b.amount)}</b></div>
       <div class="sum"><span>Status</span><span class="status s-pending">${req?"Time requested":"Awaiting payment check"}</span></div>
       <div class="actions"><button class="btn ghost block" data-act="toMine">View my bookings</button><button class="btn ghost block" data-act="newBk">New booking</button></div></div>`;return}
@@ -386,7 +392,7 @@ function renderBook(){
       <div class="sum"><span>Last class</span><b>${dates.length?fmtDate(dates.at(-1).date):"-"}</b></div>`}
       <div class="sum"><span>Total</span><span class="total">${money(p.price)}<small style="font-size:13px;font-weight:600">${TYPES[typeOfPkg(p)].note}</small></span></div>
       <label>Notes (optional)</label><textarea id="f-notes2" rows="2" placeholder="e.g. prefer a female coach, health notes, anything we should know">${esc(f.child.notes||"")}</textarea>
-      ${custom?`<div class="note">The coach will message you on WhatsApp to confirm your time. You'll pay with InstaPay once your time is confirmed.</div>`:`<div class="pay"><b>Pay with InstaPay 💳</b>
+      ${custom?`<div class="note">The coach will message you on WhatsApp to confirm your time. Then you'll get a link to pay with InstaPay.</div>`:`<div class="pay"><b>Pay with InstaPay 💳</b>
         ${st.ipa?`<div class="ipa"><span>${esc(st.ipa)}</span><button class="btn sm ghost" data-act="copyIpa">Copy</button></div>`:`<p class="muted">The payment address will appear here once the coach adds it.</p>`}
         ${st.payLink?`<a class="btn sun block" href="${esc(st.payLink)}" target="_blank" rel="noopener">Open InstaPay and pay ${money(p.price)}</a>`:""}
         <p class="muted" style="margin:8px 0 0">Transfer the exact amount, then enter the sender's name and the transaction reference shown after the transfer.</p>
@@ -455,19 +461,55 @@ function bookingMsg(b){
 }
 function waMsg(b){const lines=(b.slots||[]).map(s=>`${slotLabel(s)} with ${coachById(cOf((b.coachBySlot||{})[s]))?.name||"the coach"}`).join("\n"),d=sessionDates(b);
   return b.status==="paid"?`Hi ${b.parentName} 👋\n${b.childName}'s booking at ${S.settings.name} (${b.package}) is confirmed ✅\nSchedule:\n${lines}\nFirst class: ${d[0]?fmtDate(d[0].date):""}${S.settings.location?"\nLocation: "+S.settings.location:""}`
+    :(b.slots||[]).length&&!b.ref?`Hi ${b.parentName} 👋\n${b.childName}'s time at ${S.settings.name} is confirmed ✅\nSchedule:\n${lines}\nFirst class: ${d[0]?fmtDate(d[0].date):""}\n\nPlease pay ${b.amount} EGP here:\n${payLinkFor(b)}`
     :`Hi ${b.parentName} 👋\nAbout ${b.childName}'s booking (${b.package}) for ${b.amount} EGP`}
+const payLinkFor=b=>`https://${location.host}/#pay-${b.id}`;
+async function reportPayment(b,payer,ref){
+  const doc={kind:"payment",bookingId:b.id,status:"pending",childName:String(b.childName||"").slice(0,59),parentName:String(b.parentName||"").slice(0,59),phone:String(b.phone||"").slice(0,19),slots:[],payer:payer.slice(0,80),ref:ref.slice(0,40),amount:b.amount,createdAt:new Date().toISOString()};
+  if(S.mode==="demo"){S.payments.push({id:rid(),...doc});return}
+  await S.F.setDoc(S.F.doc(S.F.collection(S.fs,"bookings")),doc);
+}
+function renderPay(){
+  const el=$("v-pay"),b=S.payBk,st=S.settings;
+  if(document.activeElement&&el.contains(document.activeElement))return;
+  if(!b){el.innerHTML=`<div class="card"><p class="muted">Loading…</p></div>`;return}
+  if(b.missing){el.innerHTML=`<div class="card"><h2>Booking not found</h2><p class="muted">Please check the link, or message the coach on WhatsApp.</p></div>`;return}
+  const head=`<div class="sum"><span>Swimmer</span><b>${esc(b.childName)}</b></div><div class="sum"><span>Package</span><b>${esc(b.package)}</b></div>
+    <div class="sum"><span>Times</span><b>${(b.slots||[]).length?(b.slots||[]).map(slotLabel).join(", "):"to be confirmed"}</b></div>
+    ${sessionDates(b)[0]?`<div class="sum"><span>First class</span><b>${fmtDate(sessionDates(b)[0].date)}</b></div>`:""}
+    <div class="sum"><span>Amount</span><span class="total">${money(b.amount)}</span></div>`;
+  if(b.status==="paid"||b.status==="done"){el.innerHTML=`<div class="card done-box"><div class="big">✅</div><h2>Payment confirmed</h2><p class="muted">See you in the pool! 🫧</p>${head}</div>`;return}
+  if(S.paySent){el.innerHTML=`<div class="card done-box"><div class="big">🫧</div><h2>Payment sent!</h2><p class="muted">The coach will check your transfer and confirm. No need to send anything else.</p>${head}</div>`;return}
+  el.innerHTML=`<div class="card"><h2>Pay for your booking 💳</h2>${head}
+    <div class="pay"><b>Pay with InstaPay</b>
+      ${st.ipa?`<div class="ipa"><span>${esc(st.ipa)}</span><button class="btn sm ghost" data-act="copyIpaP">Copy</button></div>`:`<p class="muted">The coach will share the payment details on WhatsApp.</p>`}
+      ${st.payLink?`<a class="btn sun block" href="${esc(st.payLink)}" target="_blank" rel="noopener">Open InstaPay and pay ${money(b.amount)}</a>`:""}
+      <p class="muted" style="margin:8px 0 0">Transfer the exact amount, then enter the sender's name and the transaction reference shown after the transfer.</p>
+      <label>Name on the sending account</label><input id="p-payer">
+      <label>Transaction reference</label><input id="p-ref" dir="ltr" placeholder="123456789012">
+    </div>
+    <div class="actions"><button class="btn ok block" data-act="paySubmit">I've paid — send to coach</button></div></div>`;
+}
+$("v-pay").addEventListener("click",async e=>{const t=e.target.closest("button");if(!t)return;
+  if(t.dataset.act==="copyIpaP"){try{await navigator.clipboard.writeText(S.settings.ipa);toast("Copied ✔")}catch(_){toast(S.settings.ipa)}}
+  if(t.dataset.act==="paySubmit"){const payer=$("p-payer").value.trim(),ref=$("p-ref").value.trim();
+    if(!payer||ref.length<4)return toast("Enter the sender's name and the reference");
+    t.disabled=true;try{await reportPayment(S.payBk,payer,ref);S.paySent=true;try{localStorage.setItem("bubbles_paid_"+S.payBk.id,"1")}catch(_){}document.activeElement?.blur?.();renderPay();scrollTo(0,0)}catch(err){console.error(err);toast("Couldn't send — please try again");t.disabled=false}}
+});
 function card(b,admin){
-  let [sl,sc]=STATUS[b.status]||STATUS.pending;if(b.status==="pending"&&b.preferredTimes&&!b.ref)sl="Time requested";const dates=sessionDates(b),now=new Date();now.setHours(0,0,0,0);const next=dates.find(x=>x.date>=now);
+  let [sl,sc]=STATUS[b.status]||STATUS.pending;const repPay=admin?S.payments.filter(x=>x.bookingId===b.id).at(-1):null;
+  if(b.status==="pending"&&b.preferredTimes&&!b.ref)sl=(b.slots||[]).length?"Time confirmed — awaiting payment":"Time requested";if(repPay&&b.status==="pending"){sl="Paid — check transfer";sc="s-paid"}const dates=sessionDates(b),now=new Date();now.setHours(0,0,0,0);const next=dates.find(x=>x.date>=now);
   let h=`<div class="bk"><div class="hd"><b>${esc(b.childName)} <span class="muted">(${esc(b.age)})</span></b><span class="status ${sc}">${sl}</span></div>
     <div class="kv"><span>Package:</span> ${esc(b.package)} • ${esc(b.sessionType||"Private")}${b.child2Name?` • with ${esc(b.child2Name)} (${esc(b.child2Age)})`:""}${(b.siblings||[]).length?` • with ${b.siblings.map(esc).join(", ")}`:""} • ${money(b.amount)}</div>
     ${b.preferredTimes?`<div class="kv"><span>Requested times:</span> <b>${esc(b.preferredTimes)}</b></div>`:""}
     <div class="kv"><span>Times:</span> ${(b.slots||[]).length?"":"to be arranged"}${(b.slots||[]).map(s=>`${slotLabel(s)} (${esc(coachById(cOf((b.coachBySlot||{})[s]))?.name||"coach not assigned yet")})`).join(" • ")}</div>
     <div class="kv"><span>From</span> ${dates[0]?fmtDate(dates[0].date):"-"} <span>to</span> ${dates.length?fmtDate(dates.at(-1).date):"-"}</div>
+    ${!admin&&b.status==="pending"&&!b.ref&&(b.slots||[]).length?`<a class="btn ok block" style="margin:8px 0" href="#pay-${b.id}">💳 Pay now</a>`:""}
     ${next&&isActive(b)?`<div class="kv"><span>Next class:</span> <b>${fmtDate(next.date)} ${fmtTime(slotById(next.slot)?.time)}</b></div>`:""}`;
   if(admin){
     h+=`<div class="kv"><span>Parent:</span> ${esc(b.parentName)} • <a href="https://wa.me/${waNum(b.phone)}" target="_blank" rel="noopener" dir="ltr">${esc(b.phone)}</a></div>
       <div class="kv"><span>Level:</span> ${esc(b.level)} • ${b.gender==="f"?"Female":"Male"}${b.coachPref&&b.coachPref!=="any"?` • prefers ${esc(coachById(b.coachPref)?.name||"")}`:""}</div>
-      ${b.ref?`<div class="kv"><span>Transfer:</span> ${esc(b.payer)} • ref <b dir="ltr">${esc(b.ref)}</b></div>`:`<div class="kv"><span>Transfer:</span> not paid yet</div>`}
+      ${b.ref?`<div class="kv"><span>Transfer:</span> ${esc(b.payer)} • ref <b dir="ltr">${esc(b.ref)}</b></div>`:repPay?`<div class="note" style="background:#dcf5ea;color:#0d6b43">💳 <b>Parent says they paid:</b> ${esc(repPay.payer)} • ref <b dir="ltr">${esc(repPay.ref)}</b><br>Check your bank app, then tap “Confirm payment”.</div>`:`<div class="kv"><span>Transfer:</span> not paid yet</div>`}
       ${isActive(b)&&(b.slots||[]).length<Math.min(b.perWeek||1,3)?`<div class="tbl-row"><span style="flex:1;font-size:14px">Add a slot</span><select style="flex:1.3" data-addslot="${b.id}"><option value="">— choose a slot —</option>${S.slots.filter(s=>s.active!==false&&!(b.slots||[]).includes(s.id)).sort((x,y)=>x.day-y.day||x.time.localeCompare(y.time)).map(s=>`<option value="${s.id}" ${spotsFor(b.ptype,s.id,b.id)<=0?"disabled":""}>${slotLabel(s.id)}${spotsFor(b.ptype,s.id,b.id)<=0?" (full)":""}</option>`).join("")}</select></div>`:""}
       ${b.notes?`<div class="kv"><span>Notes:</span> ${esc(b.notes)}</div>`:""}
       ${(b.slots||[]).map(s=>`<div class="tbl-row"><span style="flex:1;font-size:14px">${slotLabel(s)}${b.ptype==="group"?` <span class="muted">• group ${groupFill(s)}/3</span>`:""}</span><select style="flex:1.3" data-coach="${b.id}" data-s="${s}"><option value="">— coach —</option>${S.settings.coaches.map(c=>{const cur=cOf((b.coachBySlot||{})[s])===c.id,free=coachFree(c.id,s,b.ptype,b.id);return `<option value="${c.id}" ${cur?"selected":""} ${!free&&!cur?"disabled":""}>${esc(c.name)}${!free&&!cur?" (busy)":""}</option>`}).join("")}</select></div>`).join("")}
@@ -512,6 +554,7 @@ function renderAdmin(){
       <div class="stat"><b>${B.filter(b=>b.status==="paid").length}</b><span>Active swimmers</span></div>
       <div class="stat"><b>${total?Math.round(used/total*100):0}%</b><span>Slots booked (${used}/${total})</span></div></div>
     ${noCoach?`<div class="note warn">⚠ ${noCoach} booking(s) need a coach assigned.</div>`:""}
+    ${S.payments.length?`<div class="note" style="background:#dcf5ea;color:#0d6b43">💳 ${S.payments.length} payment(s) reported by parents — check your bank app and confirm.</div>`:""}
     ${B.filter(b=>isActive(b)&&b.preferredTimes&&!(b.slots||[]).length).length?`<div class="note warn">🕐 ${B.filter(b=>isActive(b)&&b.preferredTimes&&!(b.slots||[]).length).length} request(s) asking for their own time — message them and add a slot.</div>`:""}
     ${!S.settings.ipa?`<div class="note warn">Add your InstaPay address (IPA) in Settings so parents can pay.</div>`:""}
     <div class="card"><h2>Bookings</h2>
@@ -525,8 +568,11 @@ $("v-admin").addEventListener("click",async e=>{
   if(t.dataset.f){S.adminFilter=t.dataset.f;return renderAdmin()}
   if(t.dataset.act==="logout"){if(S.mode==="live")await S.A.signOut(S.auth);S.tab="book";location.hash="";return render()}
   if(t.dataset.st){const b=S.bookings.find(x=>x.id===t.dataset.id);if(!b)return;const st=t.dataset.st,upd={status:st};
-    if(st==="paid"){upd.paidAt=new Date().toISOString();const miss=(b.slots||[]).filter(s=>!cOf((b.coachBySlot||{})[s]));if(miss.length)upd.coachBySlot={...(b.coachBySlot||{}),...autoAssign(miss,b.coachPref,b.ptype,b.id)}}
-    t.disabled=true;await safe(()=>updateBooking(b.id,upd),st==="paid"?"Confirmed ✔ — send the parent a WhatsApp message":"Updated");return}
+    const reps=S.payments.filter(x=>x.bookingId===b.id);
+    if(st==="paid"){upd.paidAt=new Date().toISOString();if(!b.ref&&reps.length){upd.payer=reps.at(-1).payer;upd.ref=reps.at(-1).ref}const miss=(b.slots||[]).filter(s=>!cOf((b.coachBySlot||{})[s]));if(miss.length)upd.coachBySlot={...(b.coachBySlot||{}),...autoAssign(miss,b.coachPref,b.ptype,b.id)}}
+    t.disabled=true;const ok=await safe(()=>updateBooking(b.id,upd),st==="paid"?"Confirmed ✔ — send the parent a WhatsApp message":"Updated");
+    if(ok&&st==="paid")for(const r of reps){if(S.mode==="demo")S.payments=S.payments.filter(x=>x.id!==r.id);else{try{await S.F.deleteDoc(S.F.doc(S.fs,"bookings",r.id))}catch(_){}}}
+    if(S.mode==="demo")render();return}
   if(t.dataset.del){if(t.dataset.sure)await safe(()=>deleteBooking(t.dataset.del),"Deleted");else{t.dataset.sure="1";t.textContent="Sure? Tap again"}}
 });
 $("v-admin").addEventListener("change",async e=>{
