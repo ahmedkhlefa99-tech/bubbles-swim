@@ -166,13 +166,15 @@ const DEFAULT_SETTINGS = {
   perCoach:1, sessionMinutes:45,
   about:"Swimming lessons for every age — from baby swimming to adults. Patient, small classes that build water confidence, safety and real technique at your own pace.",
   coaches:[{id:"c1",name:"Coach Ahmed",gender:"m"},{id:"c2",name:"Assistant Coach",gender:"f"}],
-  pkgVersion:2,
+  pkgVersion:3,
   packages:[
     {id:"a4",type:"p1",label:"Private · 4 sessions",sessions:4,price:1350},
     {id:"a8",type:"p1",label:"Private · 8 sessions",sessions:8,price:2500},
     {id:"b4",type:"p2",label:"Private for 2 · 4 sessions",sessions:4,price:2700},
-    {id:"b8",type:"p2",label:"Private for 2 · 8 sessions",sessions:8,price:4500},
-    {id:"g4",type:"group",label:"Small group · 4 sessions",sessions:4,price:1000}
+    {id:"b8",type:"p2",label:"Private for 2 · 8 sessions",sessions:8,price:4400},
+    {id:"g4",type:"group",label:"Small group · 4 sessions",sessions:4,price:1000},
+    {id:"s2",type:"sib",count:2,label:"2 siblings · 8 sessions",sessions:8,price:4000},
+    {id:"s5",type:"sib",count:5,label:"5 siblings · 8 sessions",sessions:8,price:5000}
   ]
 };
 const DEFAULT_SLOTS = [[0,"09:00"],[0,"10:00"],[0,"11:00"],[6,"09:00"],[6,"10:00"],[6,"11:00"],[1,"17:00"],[1,"18:00"],[3,"17:00"],[3,"18:00"]]
@@ -180,7 +182,7 @@ const DEFAULT_SLOTS = [[0,"09:00"],[0,"10:00"],[0,"11:00"],[6,"09:00"],[6,"10:00
 
 const S = { settings:structuredClone(DEFAULT_SETTINGS), slots:[], holds:[], bookings:[], mine:{},
   mode:"loading", fs:null, F:null, auth:null, A:null, admin:null, tab:"book", adminFilter:"pending", schedCoach:"all",
-  form:{step:1, child:{}, pkg:null, perWeek:1, slots:[], coachPref:"any", start:"", payer:"", ref:"", mode:"slots", pref:"", ptype:"p1", c2n:"", c2a:""}, lastBooking:null };
+  form:{step:1, child:{}, pkg:null, perWeek:1, slots:[], coachPref:"any", start:"", payer:"", ref:"", mode:"slots", pref:"", ptype:"p1", c2n:"", c2a:"", sibs:[]}, lastBooking:null };
 
 /* ---------- helpers ---------- */
 const $=id=>document.getElementById(id);
@@ -193,7 +195,7 @@ const coachById=id=>S.settings.coaches.find(c=>c.id===id);
 function fmtTime(t){if(!t)return"";let [h,m]=t.split(":").map(Number);return `${((h+11)%12)+1}:${String(m).padStart(2,"0")} ${h>=12?"PM":"AM"}`}
 function slotLabel(id){const s=slotById(id);return s?`${DAYS[s.day]} ${fmtTime(s.time)}`:"Removed slot"}
 const isActive=x=>x.status==="pending"||x.status==="paid";
-const TYPES={p1:{name:"Private — 1 swimmer",short:"Private",note:""},p2:{name:"Private — 2 swimmers",short:"Private for 2",note:" for 2 swimmers"},group:{name:"Small group — 3 swimmers",short:"Small group",note:" per swimmer"}};
+const TYPES={p1:{name:"Private — 1 swimmer",short:"Private",note:""},p2:{name:"Private — 2 swimmers",short:"Private for 2",note:" for 2 swimmers"},group:{name:"Small group — 3 swimmers",short:"Small group",note:" per swimmer"},sib:{name:"Siblings — together",short:"Siblings",note:" for all siblings"}};
 const typeOfPkg=p=>(p&&TYPES[p.type])?p.type:"p1";
 const isG=v=>typeof v==="string"&&v.startsWith("g:");
 const cOf=v=>String(v||"").replace(/^g:/,"");
@@ -235,7 +237,7 @@ async function init(){
     const [{initializeApp},F,A]=await Promise.all([import(FB+"firebase-app.js"),import(FB+"firebase-firestore.js"),import(FB+"firebase-auth.js")]);
     const app=initializeApp(firebaseConfig);S.F=F;S.A=A;S.fs=F.getFirestore(app);S.auth=A.getAuth(app);S.mode="live";
     const slow=setTimeout(()=>{if(!S._loaded)toast("Slow connection… loading data")},10000);
-    F.onSnapshot(F.doc(S.fs,"settings","main"),s=>{S._loaded=true;clearTimeout(slow);if(s.exists()){const d={...s.data()};if(!(d.pkgVersion>=2))delete d.packages;S.settings={...structuredClone(DEFAULT_SETTINGS),...d}}render()},e=>console.warn(e));
+    F.onSnapshot(F.doc(S.fs,"settings","main"),s=>{S._loaded=true;clearTimeout(slow);if(s.exists()){const d={...s.data()};if(!(d.pkgVersion>=3))delete d.packages;S.settings={...structuredClone(DEFAULT_SETTINGS),...d}}render()},e=>console.warn(e));
     F.onSnapshot(F.collection(S.fs,"slots"),q=>{S.slots=q.docs.map(d=>({id:d.id,...d.data()}));render()},e=>console.warn(e));
     F.onSnapshot(F.collection(S.fs,"holds"),q=>{S.holds=q.docs.map(d=>({id:d.id,...d.data()}));render()},e=>console.warn(e));
     for(const id of myIds())watchMine(id);
@@ -321,6 +323,7 @@ function renderBook(){
       ${S.mode==="loading"||(S.mode==="live"&&!S._loaded)?`<p class="muted">Loading…</p>`:`<ul class="facts">
         <li>✅ <b>Private sessions</b> — for 1 or 2 swimmers</li>
         <li>✅ <b>Small groups</b> of 3 swimmers</li>
+        <li>✅ <b>Siblings packages</b> — brothers & sisters swim together</li>
         <li>✅ ${st.sessionMinutes}-minute classes, all levels</li>
       </ul>`}
       <h3 style="margin-bottom:4px">How it works</h3>
@@ -346,7 +349,9 @@ function renderBook(){
       <div class="row"><div><label>Second swimmer's name</label><input id="f-c2n" value="${esc(f.c2n)}"></div><div><label>Age</label><input id="f-c2a" value="${esc(f.c2a)}" placeholder="e.g. 8 years"></div></div>`:""}
       ${f.ptype==="group"?`<div class="note">Small groups run with <b>3 swimmers</b>. Book your place now — the group starts once 3 swimmers have joined, and we'll confirm on WhatsApp.</div>`:""}
       <h3>Package</h3>
+      ${f.ptype==="sib"?`<div class="note">Brothers and sisters swim together in the same session with the same coach. The price is for all of them together.</div>`:""}
       <div class="pkg">${list.map(p=>`<button class="chip ${f.pkg===p.id?"on":""}" data-pkg="${p.id}"><b>${esc(p.label)}</b><span>${money(p.price)}${TYPES[typeOfPkg(p)].note}</span></button>`).join("")}</div>
+      ${f.ptype==="sib"&&f.pkg&&pkgOf(f.pkg).type==="sib"?`<h3>The other siblings</h3>${Array.from({length:Math.max(1,(Number(pkgOf(f.pkg).count)||2)-1)},(_,i)=>`<div class="row"><div><label>Sibling ${i+2} name</label><input id="f-sib${i}n" value="${esc((f.sibs[i]||{}).name)}"></div><div><label>Age</label><input id="f-sib${i}a" value="${esc((f.sibs[i]||{}).age)}" placeholder="e.g. 6 years"></div></div>`).join("")}`:""}
       <h3>How many times a week?</h3>
       <div class="chips">${[1,2,3].map(n=>`<button class="chip ${f.perWeek===n?"on":""}" data-pw="${n}">${["Once","Twice","3 times"][n-1]}</button>`).join("")}</div>
       <h3>Preferred coach</h3>
@@ -373,6 +378,7 @@ function renderBook(){
       <div class="sum"><span>Package</span><b>${esc(p.label)}</b></div>
       <div class="sum"><span>Type</span><b>${TYPES[f.ptype].name}</b></div>
       ${f.ptype==="p2"?`<div class="sum"><span>Second swimmer</span><b>${esc(f.c2n)} (${esc(f.c2a)})</b></div>`:""}
+      ${f.ptype==="sib"?`<div class="sum"><span>Siblings</span><b>${f.sibs.slice(0,sibsNeeded()).map(x=>`${esc(x.name)} (${esc(x.age)})`).join(", ")}</b></div>`:""}
       ${custom?`<div class="sum"><span>Requested times</span><b>${esc(f.pref)}</b></div><div class="sum"><span>Preferred start</span><b>${fmtDate(new Date(f.start+"T12:00:00"))}</b></div>`:`<div class="sum"><span>Times</span><b>${f.slots.map(slotLabel).join(", ")}</b></div>
       <div class="sum"><span>First class</span><b>${dates[0]?fmtDate(dates[0].date):"-"}</b></div>
       <div class="sum"><span>Last class</span><b>${dates.length?fmtDate(dates.at(-1).date):"-"}</b></div>`}
@@ -388,7 +394,9 @@ function renderBook(){
   }
 }
 function readStep1(){const g=id=>$(id)?.value.trim()||"";S.form.child={childName:g("f-child"),age:g("f-age"),gender:g("f-gender"),level:g("f-level"),parentName:g("f-parent"),phone:g("f-phone").replace(/\s/g,""),notes:g("f-notes")}}
-function keep2(){const f=S.form;if($("f-c2n")){f.c2n=$("f-c2n").value.trim();f.c2a=$("f-c2a").value.trim()}}
+function keep2(){const f=S.form;if($("f-c2n")){f.c2n=$("f-c2n").value.trim();f.c2a=$("f-c2a").value.trim()}
+  for(let i=0;$("f-sib"+i+"n");i++)f.sibs[i]={name:$("f-sib"+i+"n").value.trim(),age:$("f-sib"+i+"a").value.trim()}}
+function sibsNeeded(){const f=S.form,p=f.pkg&&pkgOf(f.pkg);return f.ptype==="sib"&&p&&p.type==="sib"?Math.max(1,(Number(p.count)||2)-1):0}
 function forceBook(){document.activeElement?.blur?.();renderBook()}
 $("v-book").addEventListener("click",async e=>{
   const f=S.form,t=e.target.closest("button");if(!t)return;
@@ -405,7 +413,8 @@ $("v-book").addEventListener("click",async e=>{
     if(!c.level)return toast("Choose the swimmer's level");
     if(!/^01[0-9]{9}$/.test(c.phone))return toast("Mobile number must be 11 digits starting with 01");
     f.step=2;forceBook();scrollTo(0,0)}
-  if(a==="s2next"){keep2();if(f.ptype==="p2"&&(!f.c2n||!f.c2a))return toast("Enter the second swimmer's name and age");if(!f.pkg)return toast("Choose a package");f.step=3;forceBook();scrollTo(0,0)}
+  if(a==="s2next"){keep2();if(f.ptype==="p2"&&(!f.c2n||!f.c2a))return toast("Enter the second swimmer's name and age");
+    {const n=sibsNeeded();for(let i=0;i<n;i++){const x=f.sibs[i]||{};if(!x.name||!x.age)return toast("Enter each sibling's name and age")}}if(!f.pkg)return toast("Choose a package");f.step=3;forceBook();scrollTo(0,0)}
   if(a==="s3next"){f.start=$("f-start").value;if(!f.start)return toast("Choose a start date");
     if(f.mode==="custom"){f.pref=($("f-pref")?.value||"").trim();if(f.pref.length<3)return toast("Write the days and times that suit you");f.slots=[]}
     f.step=4;forceBook();scrollTo(0,0)}
@@ -418,10 +427,10 @@ $("v-book").addEventListener("click",async e=>{
     else{f.payer="";f.ref=""}
     for(const s of f.slots)if(spotsFor(f.ptype,s)<=0){toast(slotLabel(s)+" was just taken — please pick another");f.slots=f.slots.filter(x=>x!==s);f.step=3;return forceBook()}
     const p=pkgOf(f.pkg);
-    const b={...f.child,package:p.label,ptype:f.ptype,sessionType:TYPES[f.ptype].short,child2Name:f.ptype==="p2"?f.c2n.slice(0,60):"",child2Age:f.ptype==="p2"?f.c2a.slice(0,20):"",sessions:p.sessions,amount:p.price,perWeek:f.perWeek,slots:custom?[]:[...f.slots],preferredTimes:custom?f.pref.slice(0,300):"",start:f.start,coachPref:f.coachPref,
+    const b={...f.child,package:p.label,ptype:f.ptype,sessionType:TYPES[f.ptype].short,child2Name:f.ptype==="p2"?f.c2n.slice(0,60):"",child2Age:f.ptype==="p2"?f.c2a.slice(0,20):"",siblings:f.ptype==="sib"?f.sibs.slice(0,sibsNeeded()).map(x=>`${x.name.slice(0,60)} (${x.age.slice(0,20)})`):[],sessions:p.sessions,amount:p.price,perWeek:f.perWeek,slots:custom?[]:[...f.slots],preferredTimes:custom?f.pref.slice(0,300):"",start:f.start,coachPref:f.coachPref,
       payer:f.payer.slice(0,80),ref:f.ref.slice(0,40),status:"pending",coachBySlot:autoAssign(f.slots,f.coachPref,f.ptype),createdAt:new Date().toISOString()};
     t.disabled=true;
-    try{const id=await createBooking(b);S.lastBooking={id,...b};S.form={step:5,child:{},pkg:null,perWeek:1,slots:[],coachPref:"any",start:"",payer:"",ref:"",mode:"slots",pref:"",ptype:"p1",c2n:"",c2a:""};forceBook();scrollTo(0,0)}
+    try{const id=await createBooking(b);S.lastBooking={id,...b};S.form={step:5,child:{},pkg:null,perWeek:1,slots:[],coachPref:"any",start:"",payer:"",ref:"",mode:"slots",pref:"",ptype:"p1",c2n:"",c2a:"",sibs:[]};forceBook();scrollTo(0,0)}
     catch(err){console.error(err);toast("Booking failed — please try again");t.disabled=false}
   }
   if(a==="toMine"){S.tab="mine";S.form.step=1;render()}
@@ -431,7 +440,7 @@ $("v-book").addEventListener("click",async e=>{
 /* ---------- booking cards ---------- */
 const STATUS={pending:["Awaiting payment check","s-pending"],paid:["Confirmed ✔","s-paid"],cancelled:["Cancelled","s-cancelled"],done:["Package finished","s-done"]};
 function bookingMsg(b){
-  const L=[`New ${b.preferredTimes?"time request":"booking"} — ${S.settings.name} 🫧`,`Swimmer: ${b.childName} (${b.age}) — ${b.level}`,...(b.child2Name?[`Second swimmer: ${b.child2Name} (${b.child2Age})`]:[]),`Parent: ${b.parentName} — ${b.phone}`,`Package: ${b.package} — ${b.sessionType||"Private"} (${b.amount} EGP${b.ptype==="group"?" per swimmer":""})`];
+  const L=[`New ${b.preferredTimes?"time request":"booking"} — ${S.settings.name} 🫧`,`Swimmer: ${b.childName} (${b.age}) — ${b.level}`,...(b.child2Name?[`Second swimmer: ${b.child2Name} (${b.child2Age})`]:[]),...((b.siblings||[]).length?[`Siblings: ${b.siblings.join(", ")}`]:[]),`Parent: ${b.parentName} — ${b.phone}`,`Package: ${b.package} — ${b.sessionType||"Private"} (${b.amount} EGP${b.ptype==="group"?" per swimmer":b.ptype==="sib"?" for all siblings":""})`];
   if(b.preferredTimes)L.push(`Requested times: ${b.preferredTimes}`);else L.push(`Times: ${(b.slots||[]).map(slotLabel).join(", ")}`);
   L.push(`Start: ${b.start?fmtDate(new Date(b.start+"T12:00:00")):"-"}`);
   L.push(b.ref?`Payment: InstaPay from ${b.payer}, ref ${b.ref}`:"Payment: after the time is confirmed");
@@ -445,7 +454,7 @@ function waMsg(b){const lines=(b.slots||[]).map(s=>`${slotLabel(s)} with ${coach
 function card(b,admin){
   let [sl,sc]=STATUS[b.status]||STATUS.pending;if(b.status==="pending"&&b.preferredTimes&&!b.ref)sl="Time requested";const dates=sessionDates(b),now=new Date();now.setHours(0,0,0,0);const next=dates.find(x=>x.date>=now);
   let h=`<div class="bk"><div class="hd"><b>${esc(b.childName)} <span class="muted">(${esc(b.age)})</span></b><span class="status ${sc}">${sl}</span></div>
-    <div class="kv"><span>Package:</span> ${esc(b.package)} • ${esc(b.sessionType||"Private")}${b.child2Name?` • with ${esc(b.child2Name)} (${esc(b.child2Age)})`:""} • ${money(b.amount)}</div>
+    <div class="kv"><span>Package:</span> ${esc(b.package)} • ${esc(b.sessionType||"Private")}${b.child2Name?` • with ${esc(b.child2Name)} (${esc(b.child2Age)})`:""}${(b.siblings||[]).length?` • with ${b.siblings.map(esc).join(", ")}`:""} • ${money(b.amount)}</div>
     ${b.preferredTimes?`<div class="kv"><span>Requested times:</span> <b>${esc(b.preferredTimes)}</b></div>`:""}
     <div class="kv"><span>Times:</span> ${(b.slots||[]).length?"":"to be arranged"}${(b.slots||[]).map(s=>`${slotLabel(s)} (${esc(coachById(cOf((b.coachBySlot||{})[s]))?.name||"coach not assigned yet")})`).join(" • ")}</div>
     <div class="kv"><span>From</span> ${dates[0]?fmtDate(dates[0].date):"-"} <span>to</span> ${dates.length?fmtDate(dates.at(-1).date):"-"}</div>
@@ -552,7 +561,7 @@ function renderSettings(){
       <label>InstaPay payment link (optional)</label><input id="st-link" dir="ltr" placeholder="https://ipn.eg/S/..." value="${esc(st.payLink)}"></div>
     <div class="card"><h2>Coaches</h2><div id="st-coaches">${st.coaches.map(c=>`<div class="tbl-row" data-c="${c.id}"><input value="${esc(c.name)}" data-k="name"><select data-k="gender" style="flex:0 0 95px"><option value="m" ${c.gender==="m"?"selected":""}>Coach (m)</option><option value="f" ${c.gender==="f"?"selected":""}>Coach (f)</option></select><button class="x" data-rmc="${c.id}">×</button></div>`).join("")}</div>
       <button class="btn sm ghost" data-act="addCoach">+ Coach</button></div>
-    <div class="card"><h2>Packages & prices</h2><p class="muted">Type • name • sessions • price (EGP). “Private for 2” = total for both; “Small group” = per swimmer.</p><div id="st-pkgs">${st.packages.map(p=>`<div class="tbl-row" data-p="${p.id}" style="flex-wrap:wrap"><select data-k="type" style="flex:1 1 100%">${Object.keys(TYPES).map(k=>`<option value="${k}" ${typeOfPkg(p)===k?"selected":""}>${TYPES[k].name}</option>`).join("")}</select><input value="${esc(p.label)}" data-k="label"><input type="number" style="flex:0 0 64px" value="${p.sessions}" data-k="sessions"><input type="number" style="flex:0 0 88px" value="${p.price}" data-k="price"><button class="x" data-rmp="${p.id}">×</button></div>`).join("")}</div>
+    <div class="card"><h2>Packages & prices</h2><p class="muted">Type • name • sessions • price (EGP). “Private for 2” = total for both; “Small group” = per swimmer. “Siblings” = total for all, # = number of siblings.</p><div id="st-pkgs">${st.packages.map(p=>`<div class="tbl-row" data-p="${p.id}" style="flex-wrap:wrap"><select data-k="type" style="flex:1 1 100%">${Object.keys(TYPES).map(k=>`<option value="${k}" ${typeOfPkg(p)===k?"selected":""}>${TYPES[k].name}</option>`).join("")}</select><input value="${esc(p.label)}" data-k="label"><input type="number" min="2" max="8" style="flex:0 0 56px" value="${esc(p.count||"")}" data-k="count" title="Siblings count (siblings packages only)" placeholder="#"><input type="number" style="flex:0 0 64px" value="${p.sessions}" data-k="sessions"><input type="number" style="flex:0 0 88px" value="${p.price}" data-k="price"><button class="x" data-rmp="${p.id}">×</button></div>`).join("")}</div>
       <button class="btn sm ghost" data-act="addPkg">+ Package</button></div>
     <div class="actions"><button class="btn block" data-act="saveSettings">Save settings</button></div>
     <div class="card"><h2>Bookable slots</h2>
@@ -564,8 +573,8 @@ function renderSettings(){
 function readSettings(){const st=structuredClone(S.settings),v=id=>$(id).value.trim();
   Object.assign(st,{name:v("st-name"),location:v("st-loc"),phone:v("st-phone"),instagram:v("st-ig"),about:v("st-about"),ipa:v("st-ipa"),payLink:v("st-link"),sessionMinutes:+v("st-min")||45,perCoach:Math.max(1,+v("st-per")||1)});
   st.coaches=[...document.querySelectorAll("#st-coaches [data-c]")].map(r=>({id:r.dataset.c,name:r.querySelector("[data-k=name]").value.trim()||"Coach",gender:r.querySelector("[data-k=gender]").value}));
-  st.packages=[...document.querySelectorAll("#st-pkgs [data-p]")].map(r=>({id:r.dataset.p,type:r.querySelector("[data-k=type]").value,label:r.querySelector("[data-k=label]").value.trim()||"Package",sessions:Math.max(1,+r.querySelector("[data-k=sessions]").value||1),price:Math.max(0,+r.querySelector("[data-k=price]").value||0)}));
-  st.pkgVersion=2;return st}
+  st.packages=[...document.querySelectorAll("#st-pkgs [data-p]")].map(r=>({id:r.dataset.p,type:r.querySelector("[data-k=type]").value,count:Math.max(0,+r.querySelector("[data-k=count]").value||0),label:r.querySelector("[data-k=label]").value.trim()||"Package",sessions:Math.max(1,+r.querySelector("[data-k=sessions]").value||1),price:Math.max(0,+r.querySelector("[data-k=price]").value||0)}));
+  st.pkgVersion=3;return st}
 function reSettings(){document.activeElement?.blur?.();renderSettings()}
 $("v-settings").addEventListener("click",async e=>{
   const t=e.target.closest("button");if(!t)return;const a=t.dataset.act;
