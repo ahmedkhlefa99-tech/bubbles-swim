@@ -178,7 +178,7 @@ const DEFAULT_SLOTS = [[0,"09:00"],[0,"10:00"],[0,"11:00"],[6,"09:00"],[6,"10:00
 
 const S = { settings:structuredClone(DEFAULT_SETTINGS), slots:[], holds:[], bookings:[], mine:{},
   mode:"loading", fs:null, F:null, auth:null, A:null, admin:null, tab:"book", adminFilter:"pending", schedCoach:"all",
-  form:{step:1, child:{}, pkg:null, perWeek:1, slots:[], coachPref:"any", start:"", payer:"", ref:"", mode:"slots", pref:""}, lastBooking:null };
+  form:{step:1, child:{}, pkg:null, perWeek:1, slots:[], coachPref:"any", start:"", payer:"", ref:"", mode:"slots", pref:"", ctype:"private"}, lastBooking:null };
 
 /* ---------- helpers ---------- */
 const $=id=>document.getElementById(id);
@@ -298,14 +298,13 @@ function renderBook(){
       <div class="sum"><span>Status</span><span class="status s-pending">${req?"Time requested":"Awaiting payment check"}</span></div>
       <div class="actions"><button class="btn ghost block" data-act="toMine">View my bookings</button><button class="btn ghost block" data-act="newBk">New booking</button></div></div>`;return}
   if(f.step===1){const c=f.child;
-    const per=Number(st.perCoach||1),minPrice=Math.min(...st.packages.map(p=>Math.round(p.price/Math.max(1,p.sessions))));
+    
     el.innerHTML=`<div class="card intro"><h2>Learn to swim with confidence 🫧</h2>
       ${st.about?`<p class="muted" style="margin:0">${esc(st.about)}</p>`:""}
       <div class="tiles"><div class="tile"><span>👶</span>Babies</div><div class="tile"><span>🧒</span>Kids</div><div class="tile"><span>🧑</span>Adults</div></div>
       <ul class="facts">
-        <li>✅ <b>${per===1?"Private 1-to-1 classes":`Small groups — up to ${per} per coach`}</b></li>
+        <li>✅ <b>Private sessions</b> or <b>small-group sessions</b> (max 3 swimmers)</li>
         <li>✅ Coaches: <b>${st.coaches.map(c=>esc(c.name)).join(" & ")}</b></li>
-        ${isFinite(minPrice)&&minPrice>0?`<li>✅ From <b>${money(minPrice)}</b> per class</li>`:""}
         <li>✅ ${st.sessionMinutes}-minute classes, all levels</li>
       </ul>
       <h3 style="margin-bottom:4px">How it works</h3>
@@ -324,6 +323,8 @@ function renderBook(){
   if(f.step===2){
     el.innerHTML=`<div class="card">${steps}<h2>2. Choose a package</h2>
       <div class="pkg">${st.packages.map(p=>`<button class="chip ${f.pkg===p.id?"on":""}" data-pkg="${p.id}"><b>${esc(p.label)}</b><span>${money(p.price)}${p.sessions>1?" • "+money(Math.round(p.price/p.sessions))+" / class":""}</span></button>`).join("")}</div>
+      <h3>Session type</h3>
+      <div class="chips">${[["private","Private"],["group","Small group (max 3)"]].map(([k,l])=>`<button class="chip ${f.ctype===k?"on":""}" data-ct="${k}">${l}</button>`).join("")}</div>
       <h3>How many times a week?</h3>
       <div class="chips">${[1,2,3].map(n=>`<button class="chip ${f.perWeek===n?"on":""}" data-pw="${n}">${["Once","Twice","3 times"][n-1]}</button>`).join("")}</div>
       <h3>Preferred coach</h3>
@@ -348,6 +349,7 @@ function renderBook(){
     el.innerHTML=`<div class="card">${steps}<h2>4. Review & pay</h2>
       <div class="sum"><span>Swimmer</span><b>${esc(f.child.childName)} (${esc(f.child.age)})</b></div>
       <div class="sum"><span>Package</span><b>${esc(p.label)}</b></div>
+      <div class="sum"><span>Session type</span><b>${f.ctype==="group"?"Small group (max 3)":"Private"}</b></div>
       ${custom?`<div class="sum"><span>Requested times</span><b>${esc(f.pref)}</b></div><div class="sum"><span>Preferred start</span><b>${fmtDate(new Date(f.start+"T12:00:00"))}</b></div>`:`<div class="sum"><span>Times</span><b>${f.slots.map(slotLabel).join(", ")}</b></div>
       <div class="sum"><span>First class</span><b>${dates[0]?fmtDate(dates[0].date):"-"}</b></div>
       <div class="sum"><span>Last class</span><b>${dates.length?fmtDate(dates.at(-1).date):"-"}</b></div>`}
@@ -369,6 +371,7 @@ $("v-book").addEventListener("click",async e=>{
   if(t.dataset.pkg){f.pkg=t.dataset.pkg;f.slots=[];return forceBook()}
   if(t.dataset.pw){f.perWeek=+t.dataset.pw;f.slots=[];return forceBook()}
   if(t.dataset.cp){f.coachPref=t.dataset.cp;return forceBook()}
+  if(t.dataset.ct){f.ctype=t.dataset.ct;return forceBook()}
   if(t.dataset.mode){f.start=$("f-start")?.value||f.start;if($("f-pref"))f.pref=$("f-pref").value;f.mode=t.dataset.mode;return forceBook()}
   if(t.dataset.slot){const need=Math.min(f.perWeek,pkgOf(f.pkg).sessions);f.start=$("f-start")?.value||f.start;const i=f.slots.indexOf(t.dataset.slot);
     if(i>=0)f.slots.splice(i,1);else{if(f.slots.length>=need)f.slots.shift();f.slots.push(t.dataset.slot)}return forceBook()}
@@ -391,10 +394,10 @@ $("v-book").addEventListener("click",async e=>{
     else{f.payer="";f.ref=""}
     for(const s of f.slots)if(slotUse(s)>=slotCap()){toast(slotLabel(s)+" was just taken — please pick another");f.slots=f.slots.filter(x=>x!==s);f.step=3;return forceBook()}
     const p=pkgOf(f.pkg);
-    const b={...f.child,package:p.label,sessions:p.sessions,amount:p.price,perWeek:f.perWeek,slots:custom?[]:[...f.slots],preferredTimes:custom?f.pref.slice(0,300):"",start:f.start,coachPref:f.coachPref,
+    const b={...f.child,package:p.label,sessionType:f.ctype==="group"?"Small group":"Private",sessions:p.sessions,amount:p.price,perWeek:f.perWeek,slots:custom?[]:[...f.slots],preferredTimes:custom?f.pref.slice(0,300):"",start:f.start,coachPref:f.coachPref,
       payer:f.payer.slice(0,80),ref:f.ref.slice(0,40),status:"pending",coachBySlot:autoAssign(f.slots,f.coachPref),createdAt:new Date().toISOString()};
     t.disabled=true;
-    try{const id=await createBooking(b);S.lastBooking={id,...b};S.form={step:5,child:{},pkg:null,perWeek:1,slots:[],coachPref:"any",start:"",payer:"",ref:"",mode:"slots",pref:""};forceBook();scrollTo(0,0)}
+    try{const id=await createBooking(b);S.lastBooking={id,...b};S.form={step:5,child:{},pkg:null,perWeek:1,slots:[],coachPref:"any",start:"",payer:"",ref:"",mode:"slots",pref:"",ctype:"private"};forceBook();scrollTo(0,0)}
     catch(err){console.error(err);toast("Booking failed — please try again");t.disabled=false}
   }
   if(a==="toMine"){S.tab="mine";S.form.step=1;render()}
@@ -404,7 +407,7 @@ $("v-book").addEventListener("click",async e=>{
 /* ---------- booking cards ---------- */
 const STATUS={pending:["Awaiting payment check","s-pending"],paid:["Confirmed ✔","s-paid"],cancelled:["Cancelled","s-cancelled"],done:["Package finished","s-done"]};
 function bookingMsg(b){
-  const L=[`New ${b.preferredTimes?"time request":"booking"} — ${S.settings.name} 🫧`,`Swimmer: ${b.childName} (${b.age}) — ${b.level}`,`Parent: ${b.parentName} — ${b.phone}`,`Package: ${b.package} (${b.amount} EGP)`];
+  const L=[`New ${b.preferredTimes?"time request":"booking"} — ${S.settings.name} 🫧`,`Swimmer: ${b.childName} (${b.age}) — ${b.level}`,`Parent: ${b.parentName} — ${b.phone}`,`Package: ${b.package} — ${b.sessionType||"Private"} (${b.amount} EGP)`];
   if(b.preferredTimes)L.push(`Requested times: ${b.preferredTimes}`);else L.push(`Times: ${(b.slots||[]).map(slotLabel).join(", ")}`);
   L.push(`Start: ${b.start?fmtDate(new Date(b.start+"T12:00:00")):"-"}`);
   L.push(b.ref?`Payment: InstaPay from ${b.payer}, ref ${b.ref}`:"Payment: after the time is confirmed");
@@ -418,7 +421,7 @@ function waMsg(b){const lines=(b.slots||[]).map(s=>`${slotLabel(s)} with ${coach
 function card(b,admin){
   let [sl,sc]=STATUS[b.status]||STATUS.pending;if(b.status==="pending"&&b.preferredTimes&&!b.ref)sl="Time requested";const dates=sessionDates(b),now=new Date();now.setHours(0,0,0,0);const next=dates.find(x=>x.date>=now);
   let h=`<div class="bk"><div class="hd"><b>${esc(b.childName)} <span class="muted">(${esc(b.age)})</span></b><span class="status ${sc}">${sl}</span></div>
-    <div class="kv"><span>Package:</span> ${esc(b.package)} • ${money(b.amount)}</div>
+    <div class="kv"><span>Package:</span> ${esc(b.package)} • ${esc(b.sessionType||"Private")} • ${money(b.amount)}</div>
     ${b.preferredTimes?`<div class="kv"><span>Requested times:</span> <b>${esc(b.preferredTimes)}</b></div>`:""}
     <div class="kv"><span>Times:</span> ${(b.slots||[]).length?"":"to be arranged"}${(b.slots||[]).map(s=>`${slotLabel(s)} (${esc(coachById((b.coachBySlot||{})[s])?.name||"coach not assigned yet")})`).join(" • ")}</div>
     <div class="kv"><span>From</span> ${dates[0]?fmtDate(dates[0].date):"-"} <span>to</span> ${dates.length?fmtDate(dates.at(-1).date):"-"}</div>
