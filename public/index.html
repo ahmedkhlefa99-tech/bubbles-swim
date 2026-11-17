@@ -353,7 +353,7 @@ async function init(){
     const [{initializeApp},F,A]=await Promise.all([import(FB+"firebase-app.js"),import(FB+"firebase-firestore.js"),import(FB+"firebase-auth.js")]);
     const app=initializeApp(firebaseConfig);S.F=F;S.A=A;S.fs=F.getFirestore(app);S.auth=A.getAuth(app);S.mode="live";
     const slow=setTimeout(()=>{if(!S._loaded)toast("Slow connection… loading data")},10000);
-    F.onSnapshot(F.doc(S.fs,"settings","main"),s=>{S._loaded=true;clearTimeout(slow);if(s.exists()){const d={...s.data()};if(!(d.pkgVersion>=6))delete d.packages;S.settings={...structuredClone(DEFAULT_SETTINGS),...d}}render()},e=>console.warn(e));
+    F.onSnapshot(F.doc(S.fs,"settings","main"),s=>{S._loaded=true;clearTimeout(slow);if(s.exists()){const d={...s.data()};if(!(d.pkgVersion>=6))delete d.packages;if(d.locDays&&d.locDays.Rehab&&!d.locDays["El Rehab"]){d.locDays={...d.locDays,"El Rehab":d.locDays.Rehab};delete d.locDays.Rehab}if(Array.isArray(d.locFull))d.locFull=d.locFull.map(x=>x==="Rehab"?"El Rehab":x);S.settings={...structuredClone(DEFAULT_SETTINGS),...d}}render()},e=>console.warn(e));
     F.onSnapshot(F.collection(S.fs,"slots"),q=>{S.slots=q.docs.map(d=>({id:d.id,...d.data()}));render()},e=>console.warn(e));
     F.onSnapshot(F.collection(S.fs,"holds"),q=>{S.holds=q.docs.map(d=>({id:d.id,...d.data()}));render()},e=>console.warn(e));
     for(const id of myIds())watchMine(id);
@@ -477,7 +477,7 @@ function renderBook(){
       ${st.about?`<p class="muted" style="margin:0">${esc(st.about)}</p>`:""}
       <div class="tiles"><div class="tile"><span>👶</span>Babies</div><div class="tile"><span>🧒</span>Kids</div><div class="tile"><span>🧑</span>Adults</div></div>
       ${igHandle()?`<a class="igcard" href="https://instagram.com/${encodeURIComponent(igHandle())}" target="_blank" rel="noopener"><span class="igic"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.2" fill="#fff" stroke="none"/></svg></span><span class="igtx"><b>Follow us on Instagram</b><span>@${esc(igHandle())} • tips, videos & offers</span></span><span class="igbtn">Follow</span></a>`:""}
-      <div class="locs">📍 <b>Our locations:</b> <span class="nw">Rehab</span> · <span class="nw">El Shorouk</span> · <span class="nw">El Tagamoa</span></div>
+      <div class="locs">📍 <b>Our locations:</b> <span class="nw">El Rehab</span> · <span class="nw">El Shorouk</span> · <span class="nw">El Tagamoa</span></div>
       ${S.mode==="loading"||(S.mode==="live"&&!S._loaded)?`<p class="muted">Loading…</p>`:`<ul class="facts">
         <li>✅ <b>Private sessions</b> — for 1 or 2 swimmers</li>
         <li>✅ <b>Small groups</b> of 3 swimmers</li>
@@ -616,7 +616,8 @@ $("v-book").addEventListener("click",async e=>{
 
 /* ---------- booking cards ---------- */
 const STATUS={pending:["Awaiting payment check","s-pending"],paid:["Confirmed ✔","s-paid"],cancelled:["Cancelled","s-cancelled"],done:["Package finished","s-done"]};
-const LOCATIONS=["Rehab","El Shorouk","El Tagamoa"];
+const LOCATIONS=["El Rehab","El Shorouk","El Tagamoa"];
+const locNorm=l=>l==="Rehab"?"El Rehab":l;
 function bookingMsg(b){
   const L=[`New ${b.preferredTimes?"booking request":"booking"} - ${S.settings.name}`,`Swimmer: ${b.childName} (${b.age}) — ${b.level}`,...(b.child2Name?[`Second swimmer: ${b.child2Name} (${b.child2Age})`]:[]),...((b.siblings||[]).length?[`Siblings: ${b.siblings.join(", ")}`]:[]),`Parent: ${b.parentName} — ${b.phone}`,...(b.location?[`Location: ${b.location}`]:[]),`Package: ${b.package} — ${b.sessionType||"Private"} (${b.amount} EGP${b.ptype==="group"?" per swimmer":b.ptype==="sib"?" for all siblings":""})`];
   if(b.preferredTimes)L.push(`Times a week: ${b.perWeek||2}`,`Requested times: ${b.preferredTimes}`);else L.push(`Times: ${(b.slots||[]).map(slotLabel).join(", ")}`);
@@ -746,8 +747,8 @@ function reportData(month){
   const coaches=S.settings.coaches.map(c=>({name:c.name,n:pay[c.id].n,rate:Number(rates[c.id])||0,sum:pay[c.id].n*(Number(rates[c.id])||0)}));
   const coachTotal=coaches.reduce((a,c)=>a+c.sum,0),other=Number(((S.rates||{}).expenses||{})[month])||0;
   const active=B.filter(b=>(b.status==="paid"||b.status==="done")&&sessionDates(b).some(x=>isoOf(x.date).startsWith(month)));
-  const locs=LOCATIONS.map(l=>{const a=active.filter(b=>b.location===l);return {l,swimmers:a.reduce((x,b)=>x+swimmersOf(b),0),bookings:a.length,rev:paid.filter(b=>b.location===l).reduce((x,b)=>x+Number(b.amount||0),0)}});
-  const noLoc=active.filter(b=>!LOCATIONS.includes(b.location));if(noLoc.length)locs.push({l:"Not set",swimmers:noLoc.reduce((x,b)=>x+swimmersOf(b),0),bookings:noLoc.length,rev:paid.filter(b=>!LOCATIONS.includes(b.location)).reduce((x,b)=>x+Number(b.amount||0),0)});
+  const locs=LOCATIONS.map(l=>{const a=active.filter(b=>locNorm(b.location)===l);return {l,swimmers:a.reduce((x,b)=>x+swimmersOf(b),0),bookings:a.length,rev:paid.filter(b=>locNorm(b.location)===l).reduce((x,b)=>x+Number(b.amount||0),0)}});
+  const noLoc=active.filter(b=>!LOCATIONS.includes(locNorm(b.location)));if(noLoc.length)locs.push({l:"Not set",swimmers:noLoc.reduce((x,b)=>x+swimmersOf(b),0),bookings:noLoc.length,rev:paid.filter(b=>!LOCATIONS.includes(locNorm(b.location))).reduce((x,b)=>x+Number(b.amount||0),0)});
   const pk={};for(const b of paid){pk[b.package]=pk[b.package]||{n:0,sum:0};pk[b.package].n++;pk[b.package].sum+=Number(b.amount||0)}
   let pres=0,abs=0,exc=0;for(const b of B)for(const [d,v] of Object.entries(b.att||{}))if(d.startsWith(month)){v==="p"?pres++:v==="a"?abs++:exc++}
   return {paid,revenue,coaches,coachTotal,other,net:revenue-coachTotal-other,locs,pk,newB:paid.filter(b=>!b.renewOf).length,ren:paid.filter(b=>b.renewOf).length,
