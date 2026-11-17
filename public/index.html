@@ -336,6 +336,8 @@ function isoOf(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2
 const nl2br=t=>esc(t).replace(/\n/g,"<br>");
 const igHandle=()=>(S.settings.instagram||"").trim().replace(/^@?bubbl_esswimacademy$/i,"bubbles.swimacademy").replace(/^@/,"").replace(/^https?:\/\/(www\.)?instagram\.com\//,"").replace(/[\/?].*$/,"");
 const phones=()=>[S.settings.phone,S.settings.phone2].map(x=>(x||"").trim()).filter(Boolean);
+function waBtns(msg,label){const ns=phones();if(!ns.length)return "";if(ns.length===1)return `<a class="btn wa block" href="https://wa.me/${waNum(ns[0])}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">📲 ${label} on WhatsApp</a>`;
+  return `<p class="muted" style="margin:10px 0 6px;font-weight:700">📲 Please send it to both numbers:</p>`+ns.map((n,i)=>`<a class="btn wa block" style="margin-top:8px" href="https://wa.me/${waNum(n)}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">${i+1}. Send to <span dir="ltr">${esc(n)}</span></a>`).join("")}
 const isFull=loc=>(S.settings.locFull||[]).includes(loc);
 const allowedDays=loc=>{const a=(S.settings.locDays||{})[loc];return a&&a.length?a:[0,1,2,3,4,5,6]};
 function sessionDates(b){
@@ -468,12 +470,12 @@ function renderBook(){
       <div class="actions"><button class="btn ghost" data-act="wlback">Back</button><button class="btn" style="flex:1" data-act="wlsend">Join the waiting list</button></div></div>`;return}
   if(f.step==="wldone"&&S.wlDone){const w=S.wlDone,msg=`Waiting list - ${st.name}\nSwimmer: ${w.childName} (${w.age}) - ${w.level}\nParent: ${w.parentName} - ${w.phone}\nLocation: ${w.location}\nPackage: ${w.want}\nTimes: ${w.preferredTimes||"-"}`;
     el.innerHTML=`<div class="card done-box"><div class="big">📝</div><h2>You're on the waiting list!</h2><p class="muted">We'll message you on WhatsApp as soon as a place opens in <b>${esc(w.location)}</b>.</p>
-      ${st.phone?`<a class="btn wa block" href="https://wa.me/${waNum(st.phone)}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">📲 Let the coach know on WhatsApp</a>`:""}
+      ${waBtns(msg,"Let the coach know")}
       <div class="actions"><button class="btn ghost block" data-act="wlnew">Back to start</button></div></div>`;return}
   if(f.step===5&&S.lastBooking){const b=S.lastBooking,req=!!b.preferredTimes;
     el.innerHTML=`<div class="card done-box"><div class="big">🫧🏊</div><h2>Almost done — one last step!</h2>
       <p class="muted">Your ${req?"request":"booking"} for <b>${esc(b.childName)}</b> is saved. <b>Send it to the coach on WhatsApp</b> so we can ${req?"arrange a time that suits you":"verify your payment and confirm your place"}.</p>
-      ${st.phone?`<a class="btn wa block" href="https://wa.me/${waNum(st.phone)}?text=${encodeURIComponent(bookingMsg(b))}" target="_blank" rel="noopener">📲 Send to coach on WhatsApp</a>`:""}
+      ${waBtns(bookingMsg(b),"Send to coach")}
       <div class="step-note">The message is ready — just tap <b>Send</b> in WhatsApp.</div>
       ${req?`<div class="note"><b>Paying:</b> once the coach confirms your time, you'll get a payment link on WhatsApp. Pay with InstaPay there — the coach sees it straight away.</div>`:""}
       <div class="sum"><span>Amount</span><b>${money(b.amount)}</b></div>
