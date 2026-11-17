@@ -163,6 +163,9 @@ details.info summary{font-weight:700;cursor:pointer}details.info p{margin:8px 0 
 .igbtn{background:#fff;color:#c13584;font-weight:800;font-size:14px;padding:8px 14px;border-radius:999px;animation:pulseIg 2.2s ease-in-out infinite}
 @keyframes pulseIg{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
 .ig{font-size:14px!important;font-weight:700;padding:5px 12px!important;background:linear-gradient(45deg,#f9a825,#e1306c,#c13584)!important}
+.contact{background:#eafaf1;border-radius:12px;padding:10px 12px;margin:10px 0 4px;text-align:center;font-size:15px}
+.cbtns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+.cbtn{background:#169b62;color:#fff;text-decoration:none;font-weight:700;padding:7px 12px;border-radius:99px;font-size:15px}
 .locs{animation:popIn .6s .2s cubic-bezier(.3,1.6,.5,1) both}
 .pop{position:fixed;z-index:50;pointer-events:none;border-radius:50%;border:1.5px solid rgba(18,140,180,.55);background:radial-gradient(circle at 32% 30%,#fff 0 12%,rgba(120,210,235,.3) 13% 60%,transparent 70%);animation:popUp .9s ease-out forwards}
 @keyframes popUp{from{transform:translate(0,0) scale(.3);opacity:1}to{transform:translate(var(--x),var(--y)) scale(1);opacity:0}}
@@ -267,7 +270,7 @@ const FB = "https://www.gstatic.com/firebasejs/10.12.2/";
 const DAYS = ["Saturday","Sunday","Monday","Tuesday","Wednesday","Thursday","Friday"]; // 0 = Saturday
 const DEFAULT_SETTINGS = {
   name:"Bubbles Swim Academy", location:"",
-  ipa:"", payLink:"", phone:"01014713391", instagram:"bubbles.swimacademy",
+  ipa:"", payLink:"", phone:"01014713391", phone2:"01092588545", instagram:"bubbles.swimacademy",
   perCoach:1, sessionMinutes:60,
   about:"Swimming lessons for every age — from baby swimming to adults. Patient, small classes that build water confidence, safety and real technique at your own pace.",
   coaches:[{id:"c1",name:"Coach Ahmed",gender:"m"},{id:"c2",name:"Assistant Coach",gender:"f"}],
@@ -332,6 +335,7 @@ const exOf=b=>Object.values(b.att||{}).filter(v=>v==="x").length;
 function isoOf(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
 const nl2br=t=>esc(t).replace(/\n/g,"<br>");
 const igHandle=()=>(S.settings.instagram||"").trim().replace(/^@?bubbl_esswimacademy$/i,"bubbles.swimacademy").replace(/^@/,"").replace(/^https?:\/\/(www\.)?instagram\.com\//,"").replace(/[\/?].*$/,"");
+const phones=()=>[S.settings.phone,S.settings.phone2].map(x=>(x||"").trim()).filter(Boolean);
 const isFull=loc=>(S.settings.locFull||[]).includes(loc);
 const allowedDays=loc=>{const a=(S.settings.locDays||{})[loc];return a&&a.length?a:[0,1,2,3,4,5,6]};
 function sessionDates(b){
@@ -481,6 +485,7 @@ function renderBook(){
       ${st.about?`<p class="muted" style="margin:0">${esc(st.about)}</p>`:""}
       <div class="tiles"><div class="tile"><span>👶</span>Babies</div><div class="tile"><span>🧒</span>Kids</div><div class="tile"><span>🧑</span>Adults</div></div>
       ${igHandle()?`<a class="igcard" href="https://instagram.com/${encodeURIComponent(igHandle())}" target="_blank" rel="noopener"><span class="igic"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.2" fill="#fff" stroke="none"/></svg></span><span class="igtx"><b>Follow us on Instagram</b><span>@${esc(igHandle())} • tips, videos & offers</span></span><span class="igbtn">Follow</span></a>`:""}
+      ${phones().length?`<div class="contact">💬 <b>Questions? WhatsApp us</b><div class="cbtns">${phones().map(n=>`<a class="cbtn" href="https://wa.me/${waNum(n)}" target="_blank" rel="noopener" dir="ltr">📞 ${esc(n)}</a>`).join("")}</div></div>`:""}
       <div class="locs">📍 <b>Our locations:</b> <span class="nw">El Rehab</span> · <span class="nw">El Shorouk</span> · <span class="nw">El Tagamoa</span></div>
       ${S.mode==="loading"||(S.mode==="live"&&!S._loaded)?`<p class="muted">Loading…</p>`:`<ul class="facts">
         <li>✅ <b>Private sessions</b> — for 1 or 2 swimmers</li>
@@ -844,7 +849,7 @@ function renderMine(){
   const list=Object.values(S.mine).sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||""));
   $("v-mine").innerHTML=`<div class="card"><h2>My bookings</h2>${list.length?list.map(b=>card(b,false)).join(""):`<div class="empty">No bookings on this device yet. Start from “Book” 🫧</div>`}
     <p class="muted">Bookings show here on the same device you booked from.</p>
-    ${S.settings.phone?`<a class="btn ghost block" href="https://wa.me/${waNum(S.settings.phone)}" target="_blank" rel="noopener">WhatsApp the coach: <span dir="ltr">${esc(S.settings.phone)}</span></a>`:""}</div>`;
+    ${phones().map(n=>`<a class="btn ghost block" style="margin-top:6px" href="https://wa.me/${waNum(n)}" target="_blank" rel="noopener">WhatsApp us: <span dir="ltr">${esc(n)}</span></a>`).join("")}</div>`;
 }
 
 /* ---------- admin login ---------- */
@@ -950,7 +955,8 @@ function renderSettings(){
   el.innerHTML=`<div class="card"><h2>Basics</h2>
       <label>Academy name</label><input id="st-name" value="${esc(st.name)}">
       <input id="st-loc" type="hidden" value="${esc(st.location)}">
-      <label>WhatsApp number shown to parents</label><input id="st-phone" dir="ltr" value="${esc(st.phone)}" placeholder="01xxxxxxxxx">
+      <label>WhatsApp number (booking requests go here)</label><input id="st-phone" dir="ltr" value="${esc(st.phone)}" placeholder="01xxxxxxxxx">
+      <label>Second WhatsApp number</label><input id="st-phone2" dir="ltr" value="${esc(st.phone2||"")}" placeholder="01xxxxxxxxx (optional)">
       <label>Instagram account</label><input id="st-ig" dir="ltr" value="${esc(st.instagram)}" placeholder="@bubbles.swim">
       <label>About the academy (shown to parents)</label><textarea id="st-about" rows="3">${esc(st.about)}</textarea>
       <div class="row"><div><label>Class length (minutes)</label><input id="st-min" type="number" value="${esc(st.sessionMinutes)}"></div>
@@ -985,7 +991,7 @@ function renderSettings(){
     <div class="note">Coach login link: the academy link with <b>#admin</b> at the end</div>`;
 }
 function readSettings(){const st=structuredClone(S.settings),v=id=>$(id).value.trim();
-  Object.assign(st,{name:v("st-name"),location:v("st-loc"),phone:v("st-phone"),instagram:v("st-ig"),about:v("st-about"),ipa:v("st-ipa"),payLink:cleanLink(v("st-link")),sessionMinutes:+v("st-min")||45,perCoach:Math.max(1,+v("st-per")||1)});
+  Object.assign(st,{name:v("st-name"),location:v("st-loc"),phone:v("st-phone"),phone2:v("st-phone2"),instagram:v("st-ig"),about:v("st-about"),ipa:v("st-ipa"),payLink:cleanLink(v("st-link")),sessionMinutes:+v("st-min")||45,perCoach:Math.max(1,+v("st-per")||1)});
   st.coaches=[...document.querySelectorAll("#st-coaches [data-c]")].map(r=>({id:r.dataset.c,name:r.querySelector("[data-k=name]").value.trim()||"Coach",gender:r.querySelector("[data-k=gender]").value}));
   st.packages=[...document.querySelectorAll("#st-pkgs [data-p]")].map(r=>({id:r.dataset.p,type:r.querySelector("[data-k=type]").value,count:Math.max(0,+r.querySelector("[data-k=count]").value||0),minutes:Math.max(0,+r.querySelector("[data-k=minutes]").value||0),label:r.querySelector("[data-k=label]").value.trim()||"Package",sessions:Math.max(1,+r.querySelector("[data-k=sessions]").value||1),price:Math.max(0,+r.querySelector("[data-k=price]").value||0)}));
   st.locDays={};document.querySelectorAll("#v-settings .daychips").forEach(r=>{st.locDays[r.dataset.loc]=[...r.querySelectorAll(".chip.on")].map(x=>+x.dataset.ld)});
