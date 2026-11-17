@@ -267,7 +267,7 @@ const FB = "https://www.gstatic.com/firebasejs/10.12.2/";
 const DAYS = ["Saturday","Sunday","Monday","Tuesday","Wednesday","Thursday","Friday"]; // 0 = Saturday
 const DEFAULT_SETTINGS = {
   name:"Bubbles Swim Academy", location:"",
-  ipa:"", payLink:"", phone:"01014713391", instagram:"bubbl_esswimacademy",
+  ipa:"", payLink:"", phone:"01014713391", instagram:"bubbles.swimacademy",
   perCoach:1, sessionMinutes:60,
   about:"Swimming lessons for every age — from baby swimming to adults. Patient, small classes that build water confidence, safety and real technique at your own pace.",
   coaches:[{id:"c1",name:"Coach Ahmed",gender:"m"},{id:"c2",name:"Assistant Coach",gender:"f"}],
@@ -327,7 +327,7 @@ const leftOf=b=>Math.max(0,(Number(b.sessions)||0)-usedOf(b));
 const exOf=b=>Object.values(b.att||{}).filter(v=>v==="x").length;
 function isoOf(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
 const nl2br=t=>esc(t).replace(/\n/g,"<br>");
-const igHandle=()=>(S.settings.instagram||"").trim().replace(/^@/,"").replace(/^https?:\/\/(www\.)?instagram\.com\//,"").replace(/[\/?].*$/,"");
+const igHandle=()=>(S.settings.instagram||"").trim().replace(/^@?bubbl_esswimacademy$/i,"bubbles.swimacademy").replace(/^@/,"").replace(/^https?:\/\/(www\.)?instagram\.com\//,"").replace(/[\/?].*$/,"");
 const isFull=loc=>(S.settings.locFull||[]).includes(loc);
 const allowedDays=loc=>{const a=(S.settings.locDays||{})[loc];return a&&a.length?a:[0,1,2,3,4,5,6]};
 function sessionDates(b){
