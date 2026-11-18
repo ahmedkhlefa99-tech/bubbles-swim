@@ -151,6 +151,7 @@ header.top .logo{animation:bob 3.2s ease-in-out infinite}
 @keyframes slideIn{from{transform:translateX(-18px);opacity:0}to{transform:none;opacity:1}}
 .intro h2 .bb{display:inline-block;animation:floaty 1.8s ease-in-out infinite}
 .nw{white-space:nowrap}
+.soon{display:inline-block;background:#ffc93c;color:#0b3954;font-size:11px;font-weight:800;padding:1px 7px;border-radius:99px;vertical-align:2px;text-transform:uppercase;letter-spacing:.04em}
 details.info{background:#f5fbfd;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:10px 0}
 details.info summary{font-weight:700;cursor:pointer}details.info p{margin:8px 0 0;font-size:14px;line-height:1.55}
 .daychips .chip.full{border-color:#e6a817}.daychips .chip.full.on{background:#e6a817;border-color:#e6a817}
@@ -274,7 +275,7 @@ const DEFAULT_SETTINGS = {
   perCoach:1, sessionMinutes:60,
   about:"Swimming lessons for every age — from baby swimming to adults. Patient, small classes that build water confidence, safety and real technique at your own pace.",
   coaches:[{id:"c1",name:"Coach Ahmed",gender:"m"},{id:"c2",name:"Assistant Coach",gender:"f"}],
-  locDays:{}, locFull:[],
+  locDays:{}, locFull:[], locSoon:["El Shorouk","El Tagamoa"],
   bring:"Swimsuit, swim cap, goggles, towel, flip-flops and a water bottle. Babies: a swim diaper.",
   policy:"Can't make it? Tell us at least 24 hours before and we'll book a make-up session.\nA missed session without notice counts as a used session.\nIf we cancel a class (pool closure, weather or coach absence), you get a make-up session.",
   pkgVersion:7,
@@ -338,6 +339,7 @@ const igHandle=()=>(S.settings.instagram||"").trim().replace(/^@?bubbl_esswimaca
 const phones=()=>[S.settings.phone,S.settings.phone2].map(x=>(x||"").trim()).filter(Boolean);
 function waBtns(msg,label){const ns=phones();if(!ns.length)return "";if(ns.length===1)return `<a class="btn wa block" href="https://wa.me/${waNum(ns[0])}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">📲 ${label} on WhatsApp</a>`;
   return `<p class="muted" style="margin:10px 0 6px;font-weight:700">📲 Please send it to both numbers:</p>`+ns.map((n,i)=>`<a class="btn wa block" style="margin-top:8px" href="https://wa.me/${waNum(n)}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">${i+1}. Send to <span dir="ltr">${esc(n)}</span></a>`).join("")}
+const isSoon=loc=>(S.settings.locSoon||[]).includes(loc);
 const isFull=loc=>(S.settings.locFull||[]).includes(loc);
 const allowedDays=loc=>{const a=(S.settings.locDays||{})[loc];return a&&a.length?a:[0,1,2,3,4,5,6]};
 function sessionDates(b){
@@ -488,7 +490,7 @@ function renderBook(){
       <div class="tiles"><div class="tile"><span>👶</span>Babies</div><div class="tile"><span>🧒</span>Kids</div><div class="tile"><span>🧑</span>Adults</div></div>
       ${igHandle()?`<a class="igcard" href="https://instagram.com/${encodeURIComponent(igHandle())}" target="_blank" rel="noopener"><span class="igic"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.2" fill="#fff" stroke="none"/></svg></span><span class="igtx"><b>Follow us on Instagram</b><span>@${esc(igHandle())} • tips, videos & offers</span></span><span class="igbtn">Follow</span></a>`:""}
       ${phones().length?`<div class="contact">💬 <b>Questions? WhatsApp us</b><div class="cbtns">${phones().map(n=>`<a class="cbtn" href="https://wa.me/${waNum(n)}" target="_blank" rel="noopener" dir="ltr">📞 ${esc(n)}</a>`).join("")}</div></div>`:""}
-      <div class="locs">📍 <b>Our locations:</b> <span class="nw">El Rehab</span> · <span class="nw">El Shorouk</span> · <span class="nw">El Tagamoa</span></div>
+      <div class="locs">📍 <b>Our locations:</b> ${LOCATIONS.map(l=>`<span class="nw">${l}${isSoon(l)?' <span class="soon">Soon</span>':""}</span>`).join(" · ")}</div>
       ${S.mode==="loading"||(S.mode==="live"&&!S._loaded)?`<p class="muted">Loading…</p>`:`<ul class="facts">
         <li>✅ <b>Private sessions</b> — for 1 or 2 swimmers</li>
         <li>✅ <b>Small groups</b> — up to 3 kids</li>
@@ -509,7 +511,7 @@ function renderBook(){
       <div><label>Gender</label><select id="f-gender"><option value="m" ${c.gender!=="f"?"selected":""}>Male</option><option value="f" ${c.gender==="f"?"selected":""}>Female</option></select></div></div>
       <label>Level</label><select id="f-level"><option value="">— Choose level —</option>${["Baby swimming","Beginner — first time","Can swim a little","Intermediate","Advanced / competitive"].map(x=>`<option ${c.level===x?"selected":""}>${x}</option>`).join("")}</select>
       <label>Parent's name <span class="muted">(or yours if booking for yourself)</span></label><input id="f-parent" value="${esc(c.parentName)}" autocomplete="name">
-      <label>Location</label><select id="f-loc"><option value="">— Choose location —</option>${LOCATIONS.map(x=>`<option value="${x}" ${c.location===x?"selected":""}>${x}${isFull(x)?" — full (waiting list)":""}</option>`).join("")}</select>
+      <label>Location</label><select id="f-loc"><option value="">— Choose location —</option>${LOCATIONS.map(x=>`<option value="${x}" ${c.location===x&&!isSoon(x)?"selected":""} ${isSoon(x)?"disabled":""}>${x}${isSoon(x)?" — coming soon":isFull(x)?" — full (waiting list)":""}</option>`).join("")}</select>
       <label>Mobile number (WhatsApp)</label><input id="f-phone" type="tel" inputmode="tel" dir="ltr" value="${esc(c.phone)}" placeholder="01xxxxxxxxx" autocomplete="tel">
       <div class="actions"><button class="btn block" data-act="s1next">Next</button></div></div>`;return}
   if(f.step===2){
@@ -590,7 +592,7 @@ $("v-book").addEventListener("click",async e=>{
   if(a==="s1next"){readStep1();const c=f.child;
     if(!c.childName||!c.age||!c.parentName)return toast("Enter the swimmer's name, age and your name");
     if(!c.level)return toast("Choose the swimmer's level");
-    if(!c.location)return toast("Choose your location");
+    if(!c.location||isSoon(c.location))return toast("Choose your location");
     if(!/^01[0-9]{9}$/.test(c.phone))return toast("Mobile number must be 11 digits starting with 01");
     f.step=isFull(c.location)?"wl":2;forceBook();scrollTo(0,0)}
   if(a==="wlsend"){const pref=$("wl-pref").value.trim(),c=f.child;
@@ -927,7 +929,7 @@ $("v-admin").addEventListener("click",async e=>{
     if(S.mode==="demo")render();return}
   if(t.dataset.del){if(t.dataset.sure)await safe(()=>deleteBooking(t.dataset.del),"Deleted");else{t.dataset.sure="1";t.textContent="Sure? Tap again"}}
 });
-$("v-settings").addEventListener("click",e=>{const t=e.target.closest("[data-ld],[data-full]");if(t)t.classList.toggle("on")});
+$("v-settings").addEventListener("click",e=>{const t=e.target.closest("[data-ld],[data-full],[data-soon]");if(t)t.classList.toggle("on")});
 $("v-settings").addEventListener("change",e=>{if(e.target.id!=="st-pksel")return;S.pkSel=e.target.value;document.querySelectorAll("#st-pkgs [data-p]").forEach(r=>r.style.display=r.dataset.p===S.pkSel?"":"none")});
 $("v-settings").addEventListener("input",e=>{const r=e.target.closest("#st-pkgs [data-p]");if(!r)return;const o=$("st-pksel")?.querySelector(`option[value="${r.dataset.p}"]`);if(o)o.textContent=`${r.querySelector("[data-k=label]").value.trim()||"New package"} — ${+r.querySelector("[data-k=price]").value||0} EGP`});
 $("v-admin").addEventListener("change",async e=>{
@@ -964,7 +966,7 @@ function renderSettings(){
       <div class="row"><div><label>Class length (minutes)</label><input id="st-min" type="number" value="${esc(st.sessionMinutes)}"></div>
       <div><label>Swimmers per coach per slot</label><input id="st-per" type="number" min="1" max="6" value="${esc(st.perCoach)}"></div></div></div>
     <div class="card"><h2>Locations & class days</h2><p class="muted">Tap the days each location has classes. Parents can only pick these days. None selected = every day.</p>
-      ${LOCATIONS.map(l=>{const a=(st.locDays||{})[l]||[];return `<label>${esc(l)}</label><div class="chips daychips" data-loc="${esc(l)}">${DAYS.map((d,k)=>`<button type="button" class="chip ${a.includes(k)?"on":""}" data-ld="${k}">${d.slice(0,3)}</button>`).join("")}<button type="button" class="chip full ${isFull(l)?"on":""}" data-full="${esc(l)}">Full → waiting list</button></div>`}).join("")}</div>
+      ${LOCATIONS.map(l=>{const a=(st.locDays||{})[l]||[];return `<label>${esc(l)}</label><div class="chips daychips" data-loc="${esc(l)}">${DAYS.map((d,k)=>`<button type="button" class="chip ${a.includes(k)?"on":""}" data-ld="${k}">${d.slice(0,3)}</button>`).join("")}<button type="button" class="chip full ${isFull(l)?"on":""}" data-full="${esc(l)}">Full → waiting list</button><button type="button" class="chip full ${isSoon(l)?"on":""}" data-soon="${esc(l)}">Coming soon</button></div>`}).join("")}</div>
     <div class="card"><h2>Info for parents</h2>
       <label>What to bring</label><textarea id="st-bring" rows="2">${esc(st.bring)}</textarea>
       <label>Absence & make-up policy (one rule per line)</label><textarea id="st-policy" rows="4">${esc(st.policy)}</textarea></div>
@@ -998,6 +1000,7 @@ function readSettings(){const st=structuredClone(S.settings),v=id=>$(id).value.t
   st.packages=[...document.querySelectorAll("#st-pkgs [data-p]")].map(r=>({id:r.dataset.p,type:r.querySelector("[data-k=type]").value,count:Math.max(0,+r.querySelector("[data-k=count]").value||0),minutes:Math.max(0,+r.querySelector("[data-k=minutes]").value||0),label:r.querySelector("[data-k=label]").value.trim()||"Package",sessions:Math.max(1,+r.querySelector("[data-k=sessions]").value||1),price:Math.max(0,+r.querySelector("[data-k=price]").value||0)}));
   st.locDays={};document.querySelectorAll("#v-settings .daychips").forEach(r=>{st.locDays[r.dataset.loc]=[...r.querySelectorAll(".chip.on")].map(x=>+x.dataset.ld)});
   st.locFull=[...document.querySelectorAll("#v-settings [data-full].on")].map(x=>x.dataset.full);
+  st.locSoon=[...document.querySelectorAll("#v-settings [data-soon].on")].map(x=>x.dataset.soon);
   st.bring=v("st-bring");st.policy=v("st-policy");
   st.pkgVersion=7;return st}
 function reSettings(){document.activeElement?.blur?.();renderSettings()}
