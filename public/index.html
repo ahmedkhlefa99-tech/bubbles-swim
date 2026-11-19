@@ -167,6 +167,9 @@ details.info summary{font-weight:700;cursor:pointer}details.info p{margin:8px 0 
 .contact{background:#eafaf1;border-radius:12px;padding:10px 12px;margin:10px 0 4px;text-align:center;font-size:15px}
 .cbtns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:8px}
 .cbtn{background:#169b62;color:#fff;text-decoration:none;font-weight:700;padding:7px 12px;border-radius:99px;font-size:15px}
+.mapcard{display:flex;align-items:center;gap:12px;margin:10px 0 4px;padding:12px 14px;border-radius:16px;background:#fff;border:2px solid #ffc93c;text-decoration:none;color:#0b3954}
+.mpin{font-size:26px}.mtx{flex:1;display:flex;flex-direction:column;line-height:1.3}.mtx b{font-size:15px}.mtx span{font-size:12.5px;color:#0e7c99}
+.mgo{background:#0b3954;color:#fff;font-weight:800;font-size:13px;padding:7px 12px;border-radius:99px}
 .locs{animation:popIn .6s .2s cubic-bezier(.3,1.6,.5,1) both}
 .pop{position:fixed;z-index:50;pointer-events:none;border-radius:50%;border:1.5px solid rgba(18,140,180,.55);background:radial-gradient(circle at 32% 30%,#fff 0 12%,rgba(120,210,235,.3) 13% 60%,transparent 70%);animation:popUp .9s ease-out forwards}
 @keyframes popUp{from{transform:translate(0,0) scale(.3);opacity:1}to{transform:translate(var(--x),var(--y)) scale(1);opacity:0}}
@@ -275,7 +278,7 @@ const DEFAULT_SETTINGS = {
   perCoach:1, sessionMinutes:60,
   about:"Swimming lessons for every age — from baby swimming to adults. Patient, small classes that build water confidence, safety and real technique at your own pace.",
   coaches:[{id:"c1",name:"Coach Ahmed",gender:"m"},{id:"c2",name:"Assistant Coach",gender:"f"}],
-  locDays:{}, locFull:[], locSoon:["El Shorouk","El Tagamoa"],
+  locDays:{}, locFull:[], locSoon:["El Shorouk","El Tagamoa"], locInfo:{"El Rehab":{place:"GEMS American School",maps:"https://maps.app.goo.gl/J7CqwwVWxB3pxVLz7"}},
   bring:"Swimsuit, swim cap, goggles, towel, flip-flops and a water bottle. Babies: a swim diaper.",
   policy:"Can't make it? Tell us at least 24 hours before and we'll book a make-up session.\nA missed session without notice counts as a used session.\nIf we cancel a class (pool closure, weather or coach absence), you get a make-up session.",
   pkgVersion:7,
@@ -339,6 +342,8 @@ const igHandle=()=>(S.settings.instagram||"").trim().replace(/^@?bubbl_esswimaca
 const phones=()=>[S.settings.phone,S.settings.phone2].map(x=>(x||"").trim()).filter(Boolean);
 function waBtns(msg,label){const ns=phones();if(!ns.length)return "";if(ns.length===1)return `<a class="btn wa block" href="https://wa.me/${waNum(ns[0])}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">📲 ${label} on WhatsApp</a>`;
   return `<p class="muted" style="margin:10px 0 6px;font-weight:700">📲 Please send it to both numbers:</p>`+ns.map((n,i)=>`<a class="btn wa block" style="margin-top:8px" href="https://wa.me/${waNum(n)}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">${i+1}. Send to <span dir="ltr">${esc(n)}</span></a>`).join("")}
+const locInfo=l=>((S.settings.locInfo||{})[locNorm(l)]||{});
+const locLine=l=>{if(!l)return "";const i=locInfo(l);return `${locNorm(l)}${i.place?" — "+i.place:""}${i.maps?"\nMap: "+i.maps:""}`};
 const isSoon=loc=>(S.settings.locSoon||[]).includes(loc);
 const isFull=loc=>(S.settings.locFull||[]).includes(loc);
 const allowedDays=loc=>{const a=(S.settings.locDays||{})[loc];return a&&a.length?a:[0,1,2,3,4,5,6]};
@@ -490,6 +495,7 @@ function renderBook(){
       <div class="tiles"><div class="tile"><span>👶</span>Babies</div><div class="tile"><span>🧒</span>Kids</div><div class="tile"><span>🧑</span>Adults</div></div>
       ${igHandle()?`<a class="igcard" href="https://instagram.com/${encodeURIComponent(igHandle())}" target="_blank" rel="noopener"><span class="igic"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.2" fill="#fff" stroke="none"/></svg></span><span class="igtx"><b>Follow us on Instagram</b><span>@${esc(igHandle())} • tips, videos & offers</span></span><span class="igbtn">Follow</span></a>`:""}
       ${phones().length?`<div class="contact">💬 <b>Questions? WhatsApp us</b><div class="cbtns">${phones().map(n=>`<a class="cbtn" href="https://wa.me/${waNum(n)}" target="_blank" rel="noopener" dir="ltr">📞 ${esc(n)}</a>`).join("")}</div></div>`:""}
+      ${LOCATIONS.filter(l=>!isSoon(l)&&locInfo(l).place).map(l=>`<a class="mapcard" href="${esc(locInfo(l).maps||"#")}" target="_blank" rel="noopener"><span class="mpin">📍</span><span class="mtx"><b>${esc(l)} — ${esc(locInfo(l).place)}</b><span>Tap to open in Google Maps</span></span><span class="mgo">Map ›</span></a>`).join("")}
       <div class="locs">📍 <b>Our locations:</b> ${LOCATIONS.map(l=>`<span class="nw">${l}${isSoon(l)?' <span class="soon">Soon</span>':""}</span>`).join(" · ")}</div>
       ${S.mode==="loading"||(S.mode==="live"&&!S._loaded)?`<p class="muted">Loading…</p>`:`<ul class="facts">
         <li>✅ <b>Private sessions</b> — for 1 or 2 swimmers</li>
@@ -512,6 +518,7 @@ function renderBook(){
       <label>Level</label><select id="f-level"><option value="">— Choose level —</option>${["Baby swimming","Beginner — first time","Can swim a little","Intermediate","Advanced / competitive"].map(x=>`<option ${c.level===x?"selected":""}>${x}</option>`).join("")}</select>
       <label>Parent's name <span class="muted">(or yours if booking for yourself)</span></label><input id="f-parent" value="${esc(c.parentName)}" autocomplete="name">
       <label>Location</label><select id="f-loc"><option value="">— Choose location —</option>${LOCATIONS.map(x=>`<option value="${x}" ${c.location===x&&!isSoon(x)?"selected":""} ${isSoon(x)?"disabled":""}>${x}${isSoon(x)?" — coming soon":isFull(x)?" — full (waiting list)":""}</option>`).join("")}</select>
+      ${c.location&&locInfo(c.location).place?`<p class="muted" style="margin:6px 0 0;font-size:14px">📍 ${esc(locInfo(c.location).place)} ${locInfo(c.location).maps?`· <a href="${esc(locInfo(c.location).maps)}" target="_blank" rel="noopener">Open map</a>`:""}</p>`:""}
       <label>Mobile number (WhatsApp)</label><input id="f-phone" type="tel" inputmode="tel" dir="ltr" value="${esc(c.phone)}" placeholder="01xxxxxxxxx" autocomplete="tel">
       <div class="actions"><button class="btn block" data-act="s1next">Next</button></div></div>`;return}
   if(f.step===2){
@@ -644,10 +651,10 @@ function bookingMsg(b){
   return L.join("\n");
 }
 function waMsg(b){const lines=(b.slots||[]).map(s=>slotLabel(s)).join("\n"),d=sessionDates(b);
-  return b.status==="paid"?`Hi ${b.parentName}\n${b.childName}'s booking at ${S.settings.name} (${b.package}) is confirmed\nSchedule:\n${lines}\nFirst class: ${d[0]?fmtDate(d[0].date):""}${b.location||S.settings.location?"\nLocation: "+(b.location||S.settings.location):""}${S.settings.bring?"\n\nPlease bring: "+S.settings.bring:""}`
-    :(b.slots||[]).length&&!b.ref?`Hi ${b.parentName}\n${b.childName}'s time at ${S.settings.name} is confirmed\nSchedule:\n${lines}\nFirst class: ${d[0]?fmtDate(d[0].date):""}\n\nPlease pay ${b.amount} EGP here:\n${payLinkFor(b)}`
+  return b.status==="paid"?`Hi ${b.parentName}\n${b.childName}'s booking at ${S.settings.name} (${b.package}) is confirmed\nSchedule:\n${lines}\nFirst class: ${d[0]?fmtDate(d[0].date):""}${b.location?"\nLocation: "+locLine(b.location):""}${S.settings.bring?"\n\nPlease bring: "+S.settings.bring:""}`
+    :(b.slots||[]).length&&!b.ref?`Hi ${b.parentName}\n${b.childName}'s time at ${S.settings.name} is confirmed\nSchedule:\n${lines}\nFirst class: ${d[0]?fmtDate(d[0].date):""}${b.location?"\nLocation: "+locLine(b.location):""}\n\nPlease pay ${b.amount} EGP here:\n${payLinkFor(b)}`
     :`Hi ${b.parentName}\nAbout ${b.childName}'s booking (${b.package}) for ${b.amount} EGP`}
-function reminderMsg(b,nx){const st=S.settings;return `Hi ${b.parentName}\nReminder: ${b.childName}'s swim class is on ${fmtDate(nx.date)} at ${fmtTime(slotById(nx.slot)?.time)}${b.location?" in "+b.location:""}.\n${st.bring?"Please bring: "+st.bring+"\n":""}Sessions left: ${leftOf(b)} of ${b.sessions}\nSee you in the pool!\n${st.name}`}
+function reminderMsg(b,nx){const st=S.settings;return `Hi ${b.parentName}\nReminder: ${b.childName}'s swim class is on ${fmtDate(nx.date)} at ${fmtTime(slotById(nx.slot)?.time)}.\n${b.location?"Location: "+locLine(b.location)+"\n":""}${st.bring?"Please bring: "+st.bring+"\n":""}Sessions left: ${leftOf(b)} of ${b.sessions}\nSee you in the pool!\n${st.name}`}
 const renewLinkFor=b=>`https://${location.host}/#renew-${b.id}`;
 function renewMsg(b){return `Hi ${b.parentName}\n${b.childName} has ${leftOf(b)} session${leftOf(b)===1?"":"s"} left in the current package at ${S.settings.name}.\nTo renew with the same days and times, tap here and pay:\n${renewLinkFor(b)}`}
 const cleanLink=t=>((t||"").match(/https?:\/\/\S+/)||[""])[0];
@@ -696,7 +703,7 @@ function card(b,admin){
   if(b.status==="pending"&&b.preferredTimes&&!b.ref)sl=(b.slots||[]).length?"Time confirmed — awaiting payment":"Time requested";if(repPay&&b.status==="pending"){sl="Paid — check transfer";sc="s-paid"}const dates=sessionDates(b),now=new Date();now.setHours(0,0,0,0);const next=dates.find(x=>x.date>=now);
   let h=`<div class="bk"><div class="hd"><b>${esc(b.childName)} <span class="muted">(${esc(b.age)})</span></b><span class="status ${sc}">${sl}</span></div>
     <div class="kv"><span>Package:</span> ${esc(b.package)} • ${esc(b.sessionType||"Private")}${b.child2Name?` • with ${esc(b.child2Name)} (${esc(b.child2Age)})`:""}${(b.siblings||[]).length?` • with ${b.siblings.map(esc).join(", ")}`:""} • ${money(b.amount)}</div>
-    ${b.location?`<div class="kv"><span>Location:</span> <b>📍 ${esc(b.location)}</b></div>`:""}
+    ${b.location?`<div class="kv"><span>Location:</span> <b>📍 ${esc(locNorm(b.location))}${locInfo(b.location).place?" — "+esc(locInfo(b.location).place):""}</b>${locInfo(b.location).maps?` · <a href="${esc(locInfo(b.location).maps)}" target="_blank" rel="noopener">Map</a>`:""}</div>`:""}
     ${b.preferredTimes?`<div class="kv"><span>Requested times:</span> <b>${esc(b.preferredTimes)}</b></div>`:""}
     <div class="kv"><span>Times:</span> ${(b.slots||[]).length?"":"to be arranged"}${(b.slots||[]).map(s=>`${slotLabel(s)} (${esc(coachById(cOf((b.coachBySlot||{})[s]))?.name||"coach not assigned yet")})`).join(" • ")}</div>
     <div class="kv"><span>From</span> ${dates[0]?fmtDate(dates[0].date):"-"} <span>to</span> ${dates.length?fmtDate(dates.at(-1).date):"-"}</div>
@@ -966,7 +973,8 @@ function renderSettings(){
       <div class="row"><div><label>Class length (minutes)</label><input id="st-min" type="number" value="${esc(st.sessionMinutes)}"></div>
       <div><label>Swimmers per coach per slot</label><input id="st-per" type="number" min="1" max="6" value="${esc(st.perCoach)}"></div></div></div>
     <div class="card"><h2>Locations & class days</h2><p class="muted">Tap the days each location has classes. Parents can only pick these days. None selected = every day.</p>
-      ${LOCATIONS.map(l=>{const a=(st.locDays||{})[l]||[];return `<label>${esc(l)}</label><div class="chips daychips" data-loc="${esc(l)}">${DAYS.map((d,k)=>`<button type="button" class="chip ${a.includes(k)?"on":""}" data-ld="${k}">${d.slice(0,3)}</button>`).join("")}<button type="button" class="chip full ${isFull(l)?"on":""}" data-full="${esc(l)}">Full → waiting list</button><button type="button" class="chip full ${isSoon(l)?"on":""}" data-soon="${esc(l)}">Coming soon</button></div>`}).join("")}</div>
+      ${LOCATIONS.map(l=>{const a=(st.locDays||{})[l]||[];return `<label>${esc(l)}</label><div class="chips daychips" data-loc="${esc(l)}">${DAYS.map((d,k)=>`<button type="button" class="chip ${a.includes(k)?"on":""}" data-ld="${k}">${d.slice(0,3)}</button>`).join("")}<button type="button" class="chip full ${isFull(l)?"on":""}" data-full="${esc(l)}">Full → waiting list</button><button type="button" class="chip full ${isSoon(l)?"on":""}" data-soon="${esc(l)}">Coming soon</button></div>
+        <div class="row"><div><input data-lplace="${esc(l)}" value="${esc(((st.locInfo||{})[l]||{}).place||"")}" placeholder="Place name (e.g. club or school)"></div><div><input data-lmaps="${esc(l)}" dir="ltr" value="${esc(((st.locInfo||{})[l]||{}).maps||"")}" placeholder="Google Maps link"></div></div>`}).join("")}</div>
     <div class="card"><h2>Info for parents</h2>
       <label>What to bring</label><textarea id="st-bring" rows="2">${esc(st.bring)}</textarea>
       <label>Absence & make-up policy (one rule per line)</label><textarea id="st-policy" rows="4">${esc(st.policy)}</textarea></div>
@@ -1001,6 +1009,7 @@ function readSettings(){const st=structuredClone(S.settings),v=id=>$(id).value.t
   st.locDays={};document.querySelectorAll("#v-settings .daychips").forEach(r=>{st.locDays[r.dataset.loc]=[...r.querySelectorAll(".chip.on")].map(x=>+x.dataset.ld)});
   st.locFull=[...document.querySelectorAll("#v-settings [data-full].on")].map(x=>x.dataset.full);
   st.locSoon=[...document.querySelectorAll("#v-settings [data-soon].on")].map(x=>x.dataset.soon);
+  st.locInfo={};document.querySelectorAll("#v-settings [data-lplace]").forEach(i=>{const l=i.dataset.lplace,m=document.querySelector(`#v-settings [data-lmaps="${l}"]`);const place=i.value.trim(),maps=cleanLink(m?m.value:"");if(place||maps)st.locInfo[l]={place,maps}});
   st.bring=v("st-bring");st.policy=v("st-policy");
   st.pkgVersion=7;return st}
 function reSettings(){document.activeElement?.blur?.();renderSettings()}
