@@ -278,7 +278,7 @@ const DEFAULT_SETTINGS = {
   perCoach:1, sessionMinutes:60,
   about:"Swimming lessons for every age — from baby swimming to adults. Patient, small classes that build water confidence, safety and real technique at your own pace.",
   coaches:[{id:"c1",name:"Coach Ahmed",gender:"m"},{id:"c2",name:"Assistant Coach",gender:"f"}],
-  locDays:{}, locFull:[], locSoon:["El Shorouk","El Tagamoa"], locInfo:{"El Rehab":{place:"GEMS American School",maps:"https://maps.app.goo.gl/J7CqwwVWxB3pxVLz7"}},
+  locDays:{}, locFull:[], locSoon:[], locVersion:2, locInfo:{"El Rehab":{place:"GEMS American School",maps:"https://maps.app.goo.gl/J7CqwwVWxB3pxVLz7"},"El Shorouk":{place:"Carleton College & Millennium School",maps:""}},
   bring:"Swimsuit, swim cap, goggles, towel, flip-flops and a water bottle. Babies: a swim diaper.",
   policy:"Can't make it? Tell us at least 24 hours before and we'll book a make-up session.\nA missed session without notice counts as a used session.\nIf we cancel a class (pool closure, weather or coach absence), you get a make-up session.",
   pkgVersion:7,
@@ -346,7 +346,7 @@ const locInfo=l=>((S.settings.locInfo||{})[locNorm(l)]||{});
 const locLine=l=>{if(!l)return "";const i=locInfo(l);return `${locNorm(l)}${i.place?" — "+i.place:""}${i.maps?"\nMap: "+i.maps:""}`};
 const isSoon=loc=>(S.settings.locSoon||[]).includes(loc);
 const isFull=loc=>(S.settings.locFull||[]).includes(loc);
-const allowedDays=loc=>{const a=(S.settings.locDays||{})[loc];return a&&a.length?a:[0,1,2,3,4,5,6]};
+const allowedDays=loc=>{const a=((S.settings.locDays||{})[loc]||[]).filter(n=>Number.isFinite(n));return a&&a.length?a:[0,1,2,3,4,5,6]};
 function sessionDates(b){
   if(!b.start)return[];
   const days=(b.slots||[]).map(slotById).filter(Boolean).map(s=>({js:(s.day+6)%7,id:s.id}));
@@ -370,7 +370,7 @@ async function init(){
     const [{initializeApp},F,A]=await Promise.all([import(FB+"firebase-app.js"),import(FB+"firebase-firestore.js"),import(FB+"firebase-auth.js")]);
     const app=initializeApp(firebaseConfig);S.F=F;S.A=A;S.fs=F.getFirestore(app);S.auth=A.getAuth(app);S.mode="live";
     const slow=setTimeout(()=>{if(!S._loaded)toast("Slow connection… loading data")},10000);
-    F.onSnapshot(F.doc(S.fs,"settings","main"),s=>{S._loaded=true;clearTimeout(slow);if(s.exists()){const d={...s.data()};if(!(d.pkgVersion>=7))delete d.packages;if(d.locDays&&d.locDays.Rehab&&!d.locDays["El Rehab"]){d.locDays={...d.locDays,"El Rehab":d.locDays.Rehab};delete d.locDays.Rehab}if(Array.isArray(d.locFull))d.locFull=d.locFull.map(x=>x==="Rehab"?"El Rehab":x);S.settings={...structuredClone(DEFAULT_SETTINGS),...d}}render()},e=>console.warn(e));
+    F.onSnapshot(F.doc(S.fs,"settings","main"),s=>{S._loaded=true;clearTimeout(slow);if(s.exists()){const d={...s.data()};if(!(d.pkgVersion>=7))delete d.packages;if(!(d.locVersion>=2)){delete d.locSoon;delete d.locInfo}if(d.locDays){const o={};for(const k in d.locDays)o[k]=(d.locDays[k]||[]).filter(n=>Number.isFinite(n));d.locDays=o}if(d.locDays&&d.locDays.Rehab&&!d.locDays["El Rehab"]){d.locDays={...d.locDays,"El Rehab":d.locDays.Rehab};delete d.locDays.Rehab}if(Array.isArray(d.locFull))d.locFull=d.locFull.map(x=>x==="Rehab"?"El Rehab":x);S.settings={...structuredClone(DEFAULT_SETTINGS),...d}}render()},e=>console.warn(e));
     F.onSnapshot(F.collection(S.fs,"slots"),q=>{S.slots=q.docs.map(d=>({id:d.id,...d.data()}));render()},e=>console.warn(e));
     F.onSnapshot(F.collection(S.fs,"holds"),q=>{S.holds=q.docs.map(d=>({id:d.id,...d.data()}));render()},e=>console.warn(e));
     for(const id of myIds())watchMine(id);
@@ -495,7 +495,7 @@ function renderBook(){
       <div class="tiles"><div class="tile"><span>👶</span>Babies</div><div class="tile"><span>🧒</span>Kids</div><div class="tile"><span>🧑</span>Adults</div></div>
       ${igHandle()?`<a class="igcard" href="https://instagram.com/${encodeURIComponent(igHandle())}" target="_blank" rel="noopener"><span class="igic"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.2" fill="#fff" stroke="none"/></svg></span><span class="igtx"><b>Follow us on Instagram</b><span>@${esc(igHandle())} • tips, videos & offers</span></span><span class="igbtn">Follow</span></a>`:""}
       ${phones().length?`<div class="contact">💬 <b>Questions? WhatsApp us</b><div class="cbtns">${phones().map(n=>`<a class="cbtn" href="https://wa.me/${waNum(n)}" target="_blank" rel="noopener" dir="ltr">📞 ${esc(n)}</a>`).join("")}</div></div>`:""}
-      ${LOCATIONS.filter(l=>!isSoon(l)&&locInfo(l).place).map(l=>`<a class="mapcard" href="${esc(locInfo(l).maps||"#")}" target="_blank" rel="noopener"><span class="mpin">📍</span><span class="mtx"><b>${esc(l)} — ${esc(locInfo(l).place)}</b><span>Tap to open in Google Maps</span></span><span class="mgo">Map ›</span></a>`).join("")}
+      ${LOCATIONS.filter(l=>!isSoon(l)&&locInfo(l).place).map(l=>locInfo(l).maps?`<a class="mapcard" href="${esc(locInfo(l).maps)}" target="_blank" rel="noopener"><span class="mpin">📍</span><span class="mtx"><b>${esc(l)} — ${esc(locInfo(l).place)}</b><span>Tap to open in Google Maps</span></span><span class="mgo">Map ›</span></a>`:`<div class="mapcard"><span class="mpin">📍</span><span class="mtx"><b>${esc(l)} — ${esc(locInfo(l).place)}</b></span></div>`).join("")}
       <div class="locs">📍 <b>Our locations:</b> ${LOCATIONS.map(l=>`<span class="nw">${l}${isSoon(l)?' <span class="soon">Soon</span>':""}</span>`).join(" · ")}</div>
       ${S.mode==="loading"||(S.mode==="live"&&!S._loaded)?`<p class="muted">Loading…</p>`:`<ul class="facts">
         <li>✅ <b>Private sessions</b> — for 1 or 2 swimmers</li>
@@ -1006,12 +1006,12 @@ function readSettings(){const st=structuredClone(S.settings),v=id=>$(id).value.t
   Object.assign(st,{name:v("st-name"),location:v("st-loc"),phone:v("st-phone"),phone2:v("st-phone2"),instagram:v("st-ig"),about:v("st-about"),ipa:v("st-ipa"),payLink:cleanLink(v("st-link")),sessionMinutes:+v("st-min")||45,perCoach:Math.max(1,+v("st-per")||1)});
   st.coaches=[...document.querySelectorAll("#st-coaches [data-c]")].map(r=>({id:r.dataset.c,name:r.querySelector("[data-k=name]").value.trim()||"Coach",gender:r.querySelector("[data-k=gender]").value}));
   st.packages=[...document.querySelectorAll("#st-pkgs [data-p]")].map(r=>({id:r.dataset.p,type:r.querySelector("[data-k=type]").value,count:Math.max(0,+r.querySelector("[data-k=count]").value||0),minutes:Math.max(0,+r.querySelector("[data-k=minutes]").value||0),label:r.querySelector("[data-k=label]").value.trim()||"Package",sessions:Math.max(1,+r.querySelector("[data-k=sessions]").value||1),price:Math.max(0,+r.querySelector("[data-k=price]").value||0)}));
-  st.locDays={};document.querySelectorAll("#v-settings .daychips").forEach(r=>{st.locDays[r.dataset.loc]=[...r.querySelectorAll(".chip.on")].map(x=>+x.dataset.ld)});
+  st.locDays={};document.querySelectorAll("#v-settings .daychips").forEach(r=>{st.locDays[r.dataset.loc]=[...r.querySelectorAll(".chip.on[data-ld]")].map(x=>+x.dataset.ld)});
   st.locFull=[...document.querySelectorAll("#v-settings [data-full].on")].map(x=>x.dataset.full);
   st.locSoon=[...document.querySelectorAll("#v-settings [data-soon].on")].map(x=>x.dataset.soon);
   st.locInfo={};document.querySelectorAll("#v-settings [data-lplace]").forEach(i=>{const l=i.dataset.lplace,m=document.querySelector(`#v-settings [data-lmaps="${l}"]`);const place=i.value.trim(),maps=cleanLink(m?m.value:"");if(place||maps)st.locInfo[l]={place,maps}});
   st.bring=v("st-bring");st.policy=v("st-policy");
-  st.pkgVersion=7;return st}
+  st.pkgVersion=7;st.locVersion=2;return st}
 function reSettings(){document.activeElement?.blur?.();renderSettings()}
 $("v-settings").addEventListener("click",async e=>{
   const t=e.target.closest("button");if(!t)return;const a=t.dataset.act;
