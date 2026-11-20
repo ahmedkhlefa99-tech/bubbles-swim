@@ -158,6 +158,7 @@ details.info summary{font-weight:700;cursor:pointer}details.info p{margin:8px 0 
 .lowleft{color:#c0392b}
 .seg.att button{flex:1;font-size:13px}.seg.att button.on.p{background:#1f9d63;color:#fff}.seg.att button.on.a{background:#c0392b;color:#fff}.seg.att button.on.x{background:#e6a817;color:#fff}
 .daychips{display:flex;flex-wrap:wrap;gap:6px}.daychips .chip{padding:6px 10px;font-size:13px}
+.trialban{display:block;margin:12px 0 4px;padding:12px 14px;border-radius:16px;background:linear-gradient(90deg,#ffc93c,#ffb347);color:#0b3954;text-decoration:none;font-size:17px;box-shadow:0 6px 16px rgba(255,170,40,.35)}.trialban span{display:block;font-size:14px;font-weight:600;opacity:.85;margin-top:2px}
 .igcard{display:flex;align-items:center;gap:12px;margin:14px 0 6px;padding:12px 14px;border-radius:16px;text-decoration:none;color:#fff;background:linear-gradient(45deg,#f9a825 0%,#e1306c 45%,#c13584 70%,#5851db 100%);box-shadow:0 6px 18px rgba(193,53,132,.3);animation:popIn .6s .15s cubic-bezier(.3,1.6,.5,1) both}
 .igic{flex:0 0 44px;height:44px;border-radius:12px;background:rgba(255,255,255,.18);display:grid;place-items:center}
 .igtx{flex:1;display:flex;flex-direction:column;line-height:1.3}.igtx b{font-size:16px}.igtx span{font-size:12.5px;opacity:.92}
@@ -281,8 +282,9 @@ const DEFAULT_SETTINGS = {
   locDays:{}, locFull:[], locSoon:[], locVersion:2, locInfo:{"El Rehab":{place:"GEMS American School",maps:"https://maps.app.goo.gl/J7CqwwVWxB3pxVLz7"},"El Shorouk":{place:"Millennium School",maps:""}},
   bring:"Swimsuit, swim cap, goggles, towel, flip-flops and a water bottle. Babies: a swim diaper.",
   policy:"Can't make it? Tell us at least 24 hours before and we'll book a make-up session.\nA missed session without notice counts as a used session.\nIf we cancel a class (pool closure, weather or coach absence), you get a make-up session.",
-  pkgVersion:7,
+  pkgVersion:8,
   packages:[
+    {id:"tr1",type:"trial",label:"Free trial class · 1 session",sessions:1,price:0},
     {id:"a8",type:"p1",label:"Private · 8 sessions",sessions:8,price:3000},
     {id:"bb8",type:"baby",label:"Baby swimming · 8 sessions · 30 min",sessions:8,price:2500,minutes:30},
     {id:"b8",type:"p2",label:"Private for 2 · 8 sessions",sessions:8,price:4400},
@@ -311,7 +313,7 @@ const coachById=id=>S.settings.coaches.find(c=>c.id===id);
 function fmtTime(t){if(!t)return"";let [h,m]=t.split(":").map(Number);return `${((h+11)%12)+1}:${String(m).padStart(2,"0")} ${h>=12?"PM":"AM"}`}
 function slotLabel(id){const s=slotById(id);return s?`${DAYS[s.day]} ${fmtTime(s.time)}`:"Removed slot"}
 const isActive=x=>x.status==="pending"||x.status==="paid";
-const TYPES={p1:{name:"Private — 1 swimmer",short:"Private",note:""},baby:{name:"Baby swimming",short:"Baby swimming",note:""},p2:{name:"Private — 2 swimmers",short:"Private for 2",note:" for 2 swimmers"},group:{name:"Small group — up to 3 kids",short:"Small group",note:" per swimmer"},agroup:{name:"Adult group (16+) — up to 4",short:"Adult group",note:" per swimmer"},lgroup:{name:"Ladies group — up to 4",short:"Ladies group",note:" per swimmer"},sib:{name:"Siblings — together",short:"Siblings",note:" for all siblings"}};
+const TYPES={trial:{name:"🎁 Free trial class — kids",short:"Free trial",note:""},p1:{name:"Private — 1 swimmer",short:"Private",note:""},baby:{name:"Baby swimming",short:"Baby swimming",note:""},p2:{name:"Private — 2 swimmers",short:"Private for 2",note:" for 2 swimmers"},group:{name:"Small group — up to 3 kids",short:"Small group",note:" per swimmer"},agroup:{name:"Adult group (16+) — up to 4",short:"Adult group",note:" per swimmer"},lgroup:{name:"Ladies group — up to 4",short:"Ladies group",note:" per swimmer"},sib:{name:"Siblings — together",short:"Siblings",note:" for all siblings"}};
 const typeOfPkg=p=>(p&&TYPES[p.type])?p.type:"p1";
 const GK={group:"g",agroup:"ga",lgroup:"gl"},GMAX={g:3,ga:4,gl:4};
 const isGroup=t=>!!GK[t];const gpre=t=>GK[t]?GK[t]+":":"";
@@ -370,7 +372,7 @@ async function init(){
     const [{initializeApp},F,A]=await Promise.all([import(FB+"firebase-app.js"),import(FB+"firebase-firestore.js"),import(FB+"firebase-auth.js")]);
     const app=initializeApp(firebaseConfig);S.F=F;S.A=A;S.fs=F.getFirestore(app);S.auth=A.getAuth(app);S.mode="live";
     const slow=setTimeout(()=>{if(!S._loaded)toast("Slow connection… loading data")},10000);
-    F.onSnapshot(F.doc(S.fs,"settings","main"),s=>{S._loaded=true;clearTimeout(slow);if(s.exists()){const d={...s.data()};if(!(d.pkgVersion>=7))delete d.packages;if(!(d.locVersion>=2)){delete d.locSoon;delete d.locInfo}if(d.locDays){const o={};for(const k in d.locDays)o[k]=(d.locDays[k]||[]).filter(n=>Number.isFinite(n));d.locDays=o}if(d.locDays&&d.locDays.Rehab&&!d.locDays["El Rehab"]){d.locDays={...d.locDays,"El Rehab":d.locDays.Rehab};delete d.locDays.Rehab}if(Array.isArray(d.locFull))d.locFull=d.locFull.map(x=>x==="Rehab"?"El Rehab":x);S.settings={...structuredClone(DEFAULT_SETTINGS),...d}}render()},e=>console.warn(e));
+    F.onSnapshot(F.doc(S.fs,"settings","main"),s=>{S._loaded=true;clearTimeout(slow);if(s.exists()){const d={...s.data()};if(!(d.pkgVersion>=8))delete d.packages;if(!(d.locVersion>=2)){delete d.locSoon;delete d.locInfo}if(d.locDays){const o={};for(const k in d.locDays)o[k]=(d.locDays[k]||[]).filter(n=>Number.isFinite(n));d.locDays=o}if(d.locDays&&d.locDays.Rehab&&!d.locDays["El Rehab"]){d.locDays={...d.locDays,"El Rehab":d.locDays.Rehab};delete d.locDays.Rehab}if(Array.isArray(d.locFull))d.locFull=d.locFull.map(x=>x==="Rehab"?"El Rehab":x);S.settings={...structuredClone(DEFAULT_SETTINGS),...d}}render()},e=>console.warn(e));
     F.onSnapshot(F.collection(S.fs,"slots"),q=>{S.slots=q.docs.map(d=>({id:d.id,...d.data()}));render()},e=>console.warn(e));
     F.onSnapshot(F.collection(S.fs,"holds"),q=>{S.holds=q.docs.map(d=>({id:d.id,...d.data()}));render()},e=>console.warn(e));
     for(const id of myIds())watchMine(id);
@@ -484,14 +486,15 @@ function renderBook(){
       <p class="muted">Your ${req?"request":"booking"} for <b>${esc(b.childName)}</b> is saved. <b>Send it to the coach on WhatsApp</b> so we can ${req?"arrange a time that suits you":"verify your payment and confirm your place"}.</p>
       ${waBtns(bookingMsg(b),"Send to coach")}
       <div class="step-note">The message is ready — just tap <b>Send</b> in WhatsApp.</div>
-      ${req?`<div class="note"><b>Paying:</b> once the coach confirms your time, you'll get a payment link on WhatsApp. Pay with InstaPay there — the coach sees it straight away.</div>`:""}
-      <div class="sum"><span>Amount</span><b>${money(b.amount)}</b></div>
-      <div class="sum"><span>Status</span><span class="status s-pending">${req?"Time requested":"Awaiting payment check"}</span></div>
+      ${req&&b.ptype==="trial"?`<div class="note">🎁 <b>Free trial class</b> — no payment needed. The coach will confirm the time on WhatsApp.</div>`:req?`<div class="note"><b>Paying:</b> once the coach confirms your time, you'll get a payment link on WhatsApp. Pay with InstaPay there — the coach sees it straight away.</div>`:""}
+      <div class="sum"><span>Amount</span><b>${b.amount?money(b.amount):"FREE 🎁"}</b></div>
+      <div class="sum"><span>Status</span><span class="status s-pending">${b.ptype==="trial"?"Trial requested":req?"Time requested":"Awaiting payment check"}</span></div>
       <div class="actions"><button class="btn ghost block" data-act="toMine">View my bookings</button><button class="btn ghost block" data-act="newBk">New booking</button></div></div>`;return}
   if(f.step===1){const c=f.child;
     
     el.innerHTML=`<div class="card intro"><h2>Learn to swim with confidence <span class="bb">🫧</span></h2>
       ${st.about?`<p class="muted" style="margin:0">${esc(st.about)}</p>`:""}
+      <a class="trialban" href="#" data-trial="1">🎁 <b>First class FREE for kids!</b><span>Try a trial class before choosing a package — tap to book</span></a>
       <div class="tiles"><div class="tile"><span>👶</span>Babies</div><div class="tile"><span>🧒</span>Kids</div><div class="tile"><span>🧑</span>Adults</div></div>
       ${igHandle()?`<a class="igcard" href="https://instagram.com/${encodeURIComponent(igHandle())}" target="_blank" rel="noopener"><span class="igic"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.2" fill="#fff" stroke="none"/></svg></span><span class="igtx"><b>Follow us on Instagram</b><span>@${esc(igHandle())} • tips, videos & offers</span></span><span class="igbtn">Follow</span></a>`:""}
       ${phones().length?`<div class="contact">💬 <b>Questions? WhatsApp us</b><div class="cbtns">${phones().map(n=>`<a class="cbtn" href="https://wa.me/${waNum(n)}" target="_blank" rel="noopener" dir="ltr">📞 ${esc(n)}</a>`).join("")}</div></div>`:""}
@@ -525,15 +528,15 @@ function renderBook(){
     const order=Object.keys(TYPES),pk=[...st.packages].sort((a,b)=>order.indexOf(typeOfPkg(a))-order.indexOf(typeOfPkg(b))||(a.count||0)-(b.count||0));
     const optName=p=>{const t=typeOfPkg(p);return t==="sib"?`Siblings — ${p.count||2} together`:TYPES[t].name+(p.minutes&&t!=="baby"?` (${p.minutes} min)`:"")+(pk.filter(x=>typeOfPkg(x)===t).length>1?` · ${p.sessions} sessions`:"")};
     const sel=f.pkg&&st.packages.find(x=>x.id===f.pkg);if(sel)f.ptype=typeOfPkg(sel);
-    const desc={agroup:"Group lessons for adults (16+), <b>up to 4 swimmers</b>. We start once 2 swimmers have joined.",lgroup:"Ladies-only group, <b>up to 4 swimmers</b>. We start once 2 swimmers have joined.",p1:"One swimmer with the coach.",baby:"One baby with the coach — gentle water confidence for little ones.",p2:"Two swimmers share the session with one coach.",group:"Small groups of <b>up to 3 kids</b>. We start once 2 swimmers have joined, and we'll confirm on WhatsApp.",sib:"Brothers and sisters swim together in the same session with the same coach. The price is for all of them together."};
+    const desc={trial:"One <b>free trial class for kids</b> — meet the coach and try the pool before choosing a package. No payment needed.",agroup:"Group lessons for adults (16+), <b>up to 4 swimmers</b>. We start once 2 swimmers have joined.",lgroup:"Ladies-only group, <b>up to 4 swimmers</b>. We start once 2 swimmers have joined.",p1:"One swimmer with the coach.",baby:"One baby with the coach — gentle water confidence for little ones.",p2:"Two swimmers share the session with one coach.",group:"Small groups of <b>up to 3 kids</b>. We start once 2 swimmers have joined, and we'll confirm on WhatsApp.",sib:"Brothers and sisters swim together in the same session with the same coach. The price is for all of them together."};
     el.innerHTML=`<div class="card">${steps}<h2>2. Choose your package</h2>
       <label>Package</label>
       <select id="f-pkgsel"><option value="">— Choose a package —</option>${pk.map(p=>`<option value="${p.id}" ${f.pkg===p.id?"selected":""}>${esc(optName(p))}</option>`).join("")}</select>
       ${sel?`<div class="pay" style="background:#eef8fb;border-color:#bfe6f0;margin-top:12px">
         <b style="font-size:17px">${esc(sel.label)}</b>
-        <div class="sum"><span>Sessions</span><b>${sel.sessions} · 2 per week</b></div>
+        <div class="sum"><span>Sessions</span><b>${sel.type==="trial"?"1 trial class":sel.sessions+" · 2 per week"}</b></div>
         <div class="sum"><span>Session length</span><b>${sel.minutes||st.sessionMinutes} minutes</b></div>
-        <div class="sum"><span>Fees</span><span class="total" style="font-size:20px">${money(sel.price)}<small style="font-size:13px;font-weight:600">${TYPES[typeOfPkg(sel)].note}</small></span></div>
+        <div class="sum"><span>Fees</span><span class="total" style="font-size:20px">${sel.price?money(sel.price):"FREE 🎁"}<small style="font-size:13px;font-weight:600">${TYPES[typeOfPkg(sel)].note}</small></span></div>
         <p class="muted" style="margin:8px 0 0">${desc[typeOfPkg(sel)]||""}</p></div>`:""}
       ${sel&&f.ptype==="p2"?`<div class="row"><div><label>Second swimmer's name</label><input id="f-c2n" value="${esc(f.c2n)}"></div><div><label>Age</label><input id="f-c2a" value="${esc(f.c2a)}" placeholder="e.g. 8 years"></div></div>`:""}
       ${sel&&f.ptype==="sib"?`<h3>The other siblings</h3>${Array.from({length:Math.max(1,(Number(sel.count)||2)-1)},(_,i)=>`<div class="row"><div><label>Sibling ${i+2} name</label><input id="f-sib${i}n" value="${esc((f.sibs[i]||{}).name)}"></div><div><label>Age</label><input id="f-sib${i}a" value="${esc((f.sibs[i]||{}).age)}" placeholder="e.g. 6 years"></div></div>`).join("")}`:""}
@@ -545,9 +548,9 @@ function renderBook(){
     const startVal=$("f-start")?.value||f.start||todayISO();
     f.mode="custom";
     el.innerHTML=`<div class="card">${steps}<h2>3. Your preferred times</h2>
-      ${f.mode==="custom"?`<p class="muted">Write the days and times that suit you — <b>${f.perWeek} times a week</b>, ${(f.pkg&&pkgOf(f.pkg).minutes)||st.sessionMinutes}-minute sessions. The coach will confirm your time on WhatsApp.</p>
+      ${f.mode==="custom"?`<p class="muted">Write the days and times that suit you — <b>${f.ptype==="trial"?"one trial class":f.perWeek+" times a week"}</b>, ${(f.pkg&&pkgOf(f.pkg).minutes)||st.sessionMinutes}-minute sessions. The coach will confirm your time on WhatsApp.</p>
       ${(()=>{const ad=allowedDays(f.child.location);return ad.length<7?`<div class="note">📍 Classes in <b>${esc(f.child.location)}</b>: ${ad.map(k=>DAYS[k]).join(", ")}</div>`:""})()}
-      ${[0,1].map(i=>`<div class="row"><div><label>${i?"Second":"First"} day</label><select id="f-rd${i}"><option value="">— Day —</option>${allowedDays(f.child.location).map(k=>`<option value="${k}" ${String(f.req[i].day)===String(k)?"selected":""}>${DAYS[k]}</option>`).join("")}</select></div><div><label>Time</label><input id="f-rt${i}" type="time" value="${esc(f.req[i].time)}"></div></div>`).join("")}
+      ${(f.ptype==="trial"?[0]:[0,1]).map(i=>`<div class="row"><div><label>${f.ptype==="trial"?"Day":(i?"Second":"First")+" day"}</label><select id="f-rd${i}"><option value="">— Day —</option>${allowedDays(f.child.location).map(k=>`<option value="${k}" ${String(f.req[i].day)===String(k)?"selected":""}>${DAYS[k]}</option>`).join("")}</select></div><div><label>Time</label><input id="f-rt${i}" type="time" value="${esc(f.req[i].time)}"></div></div>`).join("")}
       <label>Other times that also work <span class="muted">(optional)</span></label><textarea id="f-alt" rows="2" placeholder="e.g. any weekday after 5 PM">${esc(f.alt)}</textarea>`:`<p class="muted">Pick <b>${need}</b> weekly ${need===1?"slot":"slots"} (${(f.pkg&&pkgOf(f.pkg).minutes)||st.sessionMinutes}-minute sessions). Your slot repeats every week until the package ends. No slot fits? Tap “Suggest my own time”.</p>
       ${Object.keys(byDay).length?Object.keys(byDay).map(d=>`<div class="day">${DAYS[d]}</div><div class="chips">${byDay[d].map(s=>{
         const left=spotsFor(f.ptype,s.id),on=f.slots.includes(s.id),full=left<=0&&!on,prefOk=f.coachPref==="any"||coachFree(f.coachPref,s.id,f.ptype),gf=isGroup(f.ptype)?groupFill(s.id,f.ptype):0;
@@ -565,10 +568,10 @@ function renderBook(){
       ${custom?`<div class="sum"><span>Requested times</span><b>${esc(f.pref)}</b></div><div class="sum"><span>Preferred start</span><b>${fmtDate(new Date(f.start+"T12:00:00"))}</b></div>`:`<div class="sum"><span>Times</span><b>${f.slots.map(slotLabel).join(", ")}</b></div>
       <div class="sum"><span>First class</span><b>${dates[0]?fmtDate(dates[0].date):"-"}</b></div>
       <div class="sum"><span>Last class</span><b>${dates.length?fmtDate(dates.at(-1).date):"-"}</b></div>`}
-      <div class="sum"><span>Total</span><span class="total">${money(p.price)}<small style="font-size:13px;font-weight:600">${TYPES[typeOfPkg(p)].note}</small></span></div>
+      <div class="sum"><span>Total</span><span class="total">${p.price?money(p.price):"FREE 🎁"}<small style="font-size:13px;font-weight:600">${TYPES[typeOfPkg(p)].note}</small></span></div>
       <label>Notes (optional)</label><textarea id="f-notes2" rows="2" placeholder="e.g. health notes, anything we should know">${esc(f.child.notes||"")}</textarea>
       <details class="info"><summary>📋 Absence & make-up policy</summary><p>${nl2br(st.policy)}</p></details>
-      ${custom?`<div class="note">The coach will message you on WhatsApp to confirm your time. Then you'll get a link to pay with InstaPay.</div>`:`<div class="pay"><b>Pay with InstaPay 💳</b>
+      ${custom?`<div class="note">${f.ptype==="trial"?"The coach will message you on WhatsApp to confirm your trial time. No payment needed 🎁":"The coach will message you on WhatsApp to confirm your time. Then you'll get a link to pay with InstaPay."}</div>`:`<div class="pay"><b>Pay with InstaPay 💳</b>
         ${st.ipa?`<div class="ipa"><span>${esc(st.ipa)}</span><button class="btn sm ghost" data-act="copyIpa">Copy</button></div>`:`<p class="muted">The payment address will appear here once the coach adds it.</p>`}
         ${st.payLink?`<a class="btn sun block" href="${esc(cleanLink(st.payLink))}" target="_blank" rel="noopener">Open InstaPay and pay ${money(p.price)}</a>`:""}
         <p class="muted" style="margin:8px 0 0">Transfer the exact amount, then enter the sender's name and the transaction reference shown after the transfer.</p>
@@ -587,6 +590,7 @@ function forceBook(){document.activeElement?.blur?.();renderBook()}
 $("v-book").addEventListener("change",e=>{if(e.target.id!=="f-pkgsel")return;const f=S.form;keep2();f.pkg=e.target.value||null;const p=f.pkg&&pkgOf(f.pkg);
   if(p){f.ptype=typeOfPkg(p);if(f.ptype==="baby")f.child.level="Baby swimming"}f.slots=[];forceBook()});
 $("v-book").addEventListener("click",async e=>{
+  const tb=e.target.closest("[data-trial]");if(tb){e.preventDefault();S.form.pkg="tr1";S.form.ptype="trial";S._trialPick=1;document.getElementById("f-child")?.scrollIntoView({behavior:"smooth",block:"center"});toast("Free trial selected 🎁 — fill in the swimmer's details");return}
   const f=S.form,t=e.target.closest("button");if(!t)return;
   if(t.dataset.pkg){keep2();f.pkg=t.dataset.pkg;f.slots=[];return forceBook()}
   if(t.dataset.pw){keep2();f.perWeek=+t.dataset.pw;f.slots=[];return forceBook()}
@@ -611,12 +615,13 @@ $("v-book").addEventListener("click",async e=>{
   if(a==="s2next"){keep2();
     if(f.ptype==="lgroup"&&f.child.gender!=="f")return toast("The ladies group is for women only — please choose another package");
     if(f.ptype==="agroup"){const ag=parseInt(f.child.age,10);if(ag&&ag<16)return toast("The adult group is for ages 16+ — please choose another package")}if(f.ptype==="p2"&&(!f.c2n||!f.c2a))return toast("Enter the second swimmer's name and age");
-    {const n=sibsNeeded();for(let i=0;i<n;i++){const x=f.sibs[i]||{};if(!x.name||!x.age)return toast("Enter each sibling's name and age")}}if(!f.pkg)return toast("Choose a package");f.step=3;forceBook();scrollTo(0,0)}
+    {const n=sibsNeeded();for(let i=0;i<n;i++){const x=f.sibs[i]||{};if(!x.name||!x.age)return toast("Enter each sibling's name and age")}}if(!f.pkg)return toast("Choose a package");if(f.ptype==="trial"){const ag=parseInt(f.child.age,10);if(ag&&ag>=16)return toast("The free trial class is for kids — please choose another package");f.perWeek=1}else f.perWeek=2;f.step=3;forceBook();scrollTo(0,0)}
   if(a==="s3next"){f.start=$("f-start").value;if(!f.start)return toast("Choose a start date");
     if(f.mode==="custom"){keepReq();
-      if(f.req.some(r=>r.day===""||!r.time))return toast("Choose 2 days and a time for each");
-      if(f.req[0].day===f.req[1].day)return toast("Choose two different days");
-      f.pref=f.req.map(r=>`${DAYS[r.day]} ${fmtTime(r.time)}`).join(", ")+(f.alt?` (also OK: ${f.alt})`:"");f.slots=[]}
+      const rq=f.ptype==="trial"?f.req.slice(0,1):f.req;
+      if(rq.some(r=>r.day===""||!r.time))return toast(f.ptype==="trial"?"Choose a day and a time":"Choose 2 days and a time for each");
+      if(f.ptype!=="trial"&&f.req[0].day===f.req[1].day)return toast("Choose two different days");
+      f.pref=rq.map(r=>`${DAYS[r.day]} ${fmtTime(r.time)}`).join(", ")+(f.alt?` (also OK: ${f.alt})`:"");f.slots=[]}
     f.step=4;forceBook();scrollTo(0,0)}
   if(a==="back"){if($("f-notes2"))f.child.notes=$("f-notes2").value.trim();if(f.step===4&&$("f-payer")){f.payer=$("f-payer").value;f.ref=$("f-ref").value}if(f.step===3){f.start=$("f-start").value;if($("f-pref"))f.pref=$("f-pref").value}f.step--;forceBook()}
   if(a==="copyIpa"){try{await navigator.clipboard.writeText(S.settings.ipa);toast("Copied ✔")}catch(_){toast(S.settings.ipa)}}
@@ -627,7 +632,7 @@ $("v-book").addEventListener("click",async e=>{
     else{f.payer="";f.ref=""}
     for(const s of f.slots)if(spotsFor(f.ptype,s)<=0){toast(slotLabel(s)+" was just taken — please pick another");f.slots=f.slots.filter(x=>x!==s);f.step=3;return forceBook()}
     const p=pkgOf(f.pkg);
-    const b={...f.child,package:p.label,ptype:f.ptype,sessionType:TYPES[f.ptype].short,child2Name:f.ptype==="p2"?f.c2n.slice(0,60):"",child2Age:f.ptype==="p2"?f.c2a.slice(0,20):"",siblings:f.ptype==="sib"?f.sibs.slice(0,sibsNeeded()).map(x=>`${x.name.slice(0,60)} (${x.age.slice(0,20)})`):[],sessions:p.sessions,amount:p.price,perWeek:f.perWeek,slots:custom?[]:[...f.slots],preferredTimes:custom?f.pref.slice(0,300):"",reqSlots:custom?f.req.map(r=>({day:+r.day,time:r.time})):[],start:f.start,coachPref:f.coachPref,
+    const b={...f.child,package:p.label,ptype:f.ptype,sessionType:TYPES[f.ptype].short,child2Name:f.ptype==="p2"?f.c2n.slice(0,60):"",child2Age:f.ptype==="p2"?f.c2a.slice(0,20):"",siblings:f.ptype==="sib"?f.sibs.slice(0,sibsNeeded()).map(x=>`${x.name.slice(0,60)} (${x.age.slice(0,20)})`):[],sessions:p.sessions,amount:p.price,perWeek:f.perWeek,slots:custom?[]:[...f.slots],preferredTimes:custom?f.pref.slice(0,300):"",reqSlots:custom?(f.ptype==="trial"?f.req.slice(0,1):f.req).map(r=>({day:+r.day,time:r.time})):[],start:f.start,coachPref:f.coachPref,
       payer:f.payer.slice(0,80),ref:f.ref.slice(0,40),status:"pending",coachBySlot:autoAssign(f.slots,f.coachPref,f.ptype),createdAt:new Date().toISOString()};
     t.disabled=true;
     try{const id=await createBooking(b);S.lastBooking={id,...b};S.form={step:5,child:{},pkg:null,perWeek:2,slots:[],coachPref:"any",start:"",payer:"",ref:"",mode:"custom",pref:"",req:[{day:"",time:""},{day:"",time:""}],alt:"",ptype:"p1",c2n:"",c2a:"",sibs:[]};forceBook();scrollTo(0,0)}
@@ -642,16 +647,17 @@ const STATUS={pending:["Awaiting payment check","s-pending"],paid:["Confirmed �
 const LOCATIONS=["El Rehab","El Shorouk","El Tagamoa"];
 const locNorm=l=>l==="Rehab"?"El Rehab":l;
 function bookingMsg(b){
-  const L=[`New ${b.preferredTimes?"booking request":"booking"} - ${S.settings.name}`,`Swimmer: ${b.childName} (${b.age}) — ${b.level}`,...(b.child2Name?[`Second swimmer: ${b.child2Name} (${b.child2Age})`]:[]),...((b.siblings||[]).length?[`Siblings: ${b.siblings.join(", ")}`]:[]),`Parent: ${b.parentName} — ${b.phone}`,...(b.location?[`Location: ${b.location}`]:[]),`Package: ${b.package} — ${b.sessionType||"Private"} (${b.amount} EGP${b.ptype==="group"?" per swimmer":b.ptype==="sib"?" for all siblings":""})`];
-  if(b.preferredTimes)L.push(`Times a week: ${b.perWeek||2}`,`Requested times: ${b.preferredTimes}`);else L.push(`Times: ${(b.slots||[]).map(slotLabel).join(", ")}`);
+  const L=[`New ${b.preferredTimes?"booking request":"booking"} - ${S.settings.name}`,`Swimmer: ${b.childName} (${b.age}) — ${b.level}`,...(b.child2Name?[`Second swimmer: ${b.child2Name} (${b.child2Age})`]:[]),...((b.siblings||[]).length?[`Siblings: ${b.siblings.join(", ")}`]:[]),`Parent: ${b.parentName} — ${b.phone}`,...(b.location?[`Location: ${b.location}`]:[]),`Package: ${b.package} — ${b.sessionType||"Private"} (${b.ptype==="trial"?"FREE":b.amount+" EGP"}${b.ptype==="group"?" per swimmer":b.ptype==="sib"?" for all siblings":""})`];
+  if(b.preferredTimes)L.push(`Times a week: ${b.ptype==="trial"?"trial class":b.perWeek||2}`,`Requested times: ${b.preferredTimes}`);else L.push(`Times: ${(b.slots||[]).map(slotLabel).join(", ")}`);
   L.push(`Start: ${b.start?fmtDate(new Date(b.start+"T12:00:00")):"-"}`);
-  L.push(b.ref?`Payment: InstaPay from ${b.payer}, ref ${b.ref}`:"Payment: after the time is confirmed");
+  L.push(b.ptype==="trial"?"Payment: none — free trial class":b.ref?`Payment: InstaPay from ${b.payer}, ref ${b.ref}`:"Payment: after the time is confirmed");
   if(b.notes)L.push(`Notes: ${b.notes}`);
   L.push(`Booking ID: ${String(b.id||"").slice(0,6).toUpperCase()}`);
   return L.join("\n");
 }
 function waMsg(b){const lines=(b.slots||[]).map(s=>slotLabel(s)).join("\n"),d=sessionDates(b);
   return b.status==="paid"?`Hi ${b.parentName}\n${b.childName}'s booking at ${S.settings.name} (${b.package}) is confirmed\nSchedule:\n${lines}\nFirst class: ${d[0]?fmtDate(d[0].date):""}${b.location?"\nLocation: "+locLine(b.location):""}${S.settings.bring?"\n\nPlease bring: "+S.settings.bring:""}`
+    :(b.slots||[]).length&&b.ptype==="trial"?`Hi ${b.parentName}\n${b.childName}'s FREE trial class at ${S.settings.name} is confirmed 🎁\nTime: ${lines}\nDate: ${d[0]?fmtDate(d[0].date):""}${b.location?"\nLocation: "+locLine(b.location):""}${S.settings.bring?"\n\nPlease bring: "+S.settings.bring:""}\n\nSee you in the pool!`
     :(b.slots||[]).length&&!b.ref?`Hi ${b.parentName}\n${b.childName}'s time at ${S.settings.name} is confirmed\nSchedule:\n${lines}\nFirst class: ${d[0]?fmtDate(d[0].date):""}${b.location?"\nLocation: "+locLine(b.location):""}\n\nPlease pay ${b.amount} EGP here:\n${payLinkFor(b)}`
     :`Hi ${b.parentName}\nAbout ${b.childName}'s booking (${b.package}) for ${b.amount} EGP`}
 function reminderMsg(b,nx){const st=S.settings;return `Hi ${b.parentName}\nReminder: ${b.childName}'s swim class is on ${fmtDate(nx.date)} at ${fmtTime(slotById(nx.slot)?.time)}.\n${b.location?"Location: "+locLine(b.location)+"\n":""}${st.bring?"Please bring: "+st.bring+"\n":""}Sessions left: ${leftOf(b)} of ${b.sessions}\nSee you in the pool!\n${st.name}`}
@@ -700,14 +706,14 @@ $("v-pay").addEventListener("click",async e=>{const t=e.target.closest("button")
 $("v-pay").addEventListener("change",e=>{if(e.target.id!=="p-shot")return;const f=e.target.files[0],img=$("p-prev");if(!f){img.style.display="none";return}img.src=URL.createObjectURL(f);img.style.display="block"});
 function card(b,admin){
   let [sl,sc]=STATUS[b.status]||STATUS.pending;const repPay=admin?S.payments.filter(x=>x.bookingId===b.id).at(-1):null;
-  if(b.status==="pending"&&b.preferredTimes&&!b.ref)sl=(b.slots||[]).length?"Time confirmed — awaiting payment":"Time requested";if(repPay&&b.status==="pending"){sl="Paid — check transfer";sc="s-paid"}const dates=sessionDates(b),now=new Date();now.setHours(0,0,0,0);const next=dates.find(x=>x.date>=now);
+  if(b.status==="pending"&&b.preferredTimes&&!b.ref)sl=(b.slots||[]).length?(b.ptype==="trial"?"Trial time confirmed 🎁":"Time confirmed — awaiting payment"):(b.ptype==="trial"?"Trial requested 🎁":"Time requested");if(repPay&&b.status==="pending"){sl="Paid — check transfer";sc="s-paid"}const dates=sessionDates(b),now=new Date();now.setHours(0,0,0,0);const next=dates.find(x=>x.date>=now);
   let h=`<div class="bk"><div class="hd"><b>${esc(b.childName)} <span class="muted">(${esc(b.age)})</span></b><span class="status ${sc}">${sl}</span></div>
     <div class="kv"><span>Package:</span> ${esc(b.package)} • ${esc(b.sessionType||"Private")}${b.child2Name?` • with ${esc(b.child2Name)} (${esc(b.child2Age)})`:""}${(b.siblings||[]).length?` • with ${b.siblings.map(esc).join(", ")}`:""} • ${money(b.amount)}</div>
     ${b.location?`<div class="kv"><span>Location:</span> <b>📍 ${esc(locNorm(b.location))}${locInfo(b.location).place?" — "+esc(locInfo(b.location).place):""}</b>${locInfo(b.location).maps?` · <a href="${esc(locInfo(b.location).maps)}" target="_blank" rel="noopener">Map</a>`:""}</div>`:""}
     ${b.preferredTimes?`<div class="kv"><span>Requested times:</span> <b>${esc(b.preferredTimes)}</b></div>`:""}
     <div class="kv"><span>Times:</span> ${(b.slots||[]).length?"":"to be arranged"}${(b.slots||[]).map(s=>`${slotLabel(s)} (${esc(coachById(cOf((b.coachBySlot||{})[s]))?.name||"coach not assigned yet")})`).join(" • ")}</div>
     <div class="kv"><span>From</span> ${dates[0]?fmtDate(dates[0].date):"-"} <span>to</span> ${dates.length?fmtDate(dates.at(-1).date):"-"}</div>
-    ${!admin&&b.status==="pending"&&!b.ref&&(b.slots||[]).length?`<a class="btn ok block" style="margin:8px 0" href="#pay-${b.id}">💳 Pay now</a>`:""}
+    ${!admin&&b.ptype!=="trial"&&b.status==="pending"&&!b.ref&&(b.slots||[]).length?`<a class="btn ok block" style="margin:8px 0" href="#pay-${b.id}">💳 Pay now</a>`:""}
     ${b.status==="paid"||b.status==="done"?`<div class="kv"><span>Sessions:</span> <b class="${leftOf(b)<=2?"lowleft":""}">${usedOf(b)} of ${b.sessions} used • ${leftOf(b)} left</b>${exOf(b)?` <span class="muted">(${exOf(b)} make-up)</span>`:""}</div>`:""}
     ${!admin&&(b.status==="paid"||b.status==="done")&&leftOf(b)<=2?`<a class="btn sun block" style="margin:8px 0" href="#renew-${b.id}">🔁 Renew — same days & times</a>`:""}
     ${next&&isActive(b)?`<div class="kv"><span>Next class:</span> <b>${fmtDate(next.date)} ${fmtTime(slotById(next.slot)?.time)}</b></div>`:""}`;
@@ -721,7 +727,7 @@ function card(b,admin){
       ${b.notes?`<div class="kv"><span>Notes:</span> ${esc(b.notes)}</div>`:""}
       ${(b.slots||[]).map(s=>`<div class="tbl-row"><span style="flex:1;font-size:14px">${slotLabel(s)}${isGroup(b.ptype)?` <span class="muted">• group ${groupFill(s,b.ptype)}/${GMAX[GK[b.ptype]]}</span>`:""}</span><select style="flex:1.3" data-coach="${b.id}" data-s="${s}"><option value="">— coach —</option>${S.settings.coaches.map(c=>{const cur=cOf((b.coachBySlot||{})[s])===c.id,free=coachFree(c.id,s,b.ptype,b.id);return `<option value="${c.id}" ${cur?"selected":""} ${!free&&!cur?"disabled":""}>${esc(c.name)}${!free&&!cur?" (busy)":""}</option>`}).join("")}</select></div>`).join("")}
       <div class="actions">
-        ${b.status==="pending"&&!b.ref&&!repPay&&(b.slots||[]).length?`<a class="btn sm ok" href="https://wa.me/${waNum(b.phone)}?text=${encodeURIComponent(waMsg(b))}" target="_blank" rel="noopener">📲 Send time & payment link</a>`:""}
+        ${b.status==="pending"&&!b.ref&&!repPay&&(b.slots||[]).length?`<a class="btn sm ok" href="https://wa.me/${waNum(b.phone)}?text=${encodeURIComponent(waMsg(b))}" target="_blank" rel="noopener">📲 ${b.ptype==="trial"?"Send trial time":"Send time & payment link"}</a>`:""}
         ${b.status==="pending"&&(b.ref||repPay)?`<button class="btn sm ok" data-st="paid" data-id="${b.id}">✔ Confirm payment received</button>`:""}
         ${b.status==="pending"&&!b.ref&&!repPay&&(b.slots||[]).length?`<button class="btn sm ghost" data-st="paid" data-id="${b.id}">Mark as paid (cash/other)</button>`:""}
         ${b.status==="paid"&&next?`<a class="btn sm ghost" href="https://wa.me/${waNum(b.phone)}?text=${encodeURIComponent(reminderMsg(b,next))}" target="_blank" rel="noopener">⏰ Reminder</a>`:""}
@@ -1011,7 +1017,7 @@ function readSettings(){const st=structuredClone(S.settings),v=id=>$(id).value.t
   st.locSoon=[...document.querySelectorAll("#v-settings [data-soon].on")].map(x=>x.dataset.soon);
   st.locInfo={};document.querySelectorAll("#v-settings [data-lplace]").forEach(i=>{const l=i.dataset.lplace,m=document.querySelector(`#v-settings [data-lmaps="${l}"]`);const place=i.value.trim(),maps=cleanLink(m?m.value:"");if(place||maps)st.locInfo[l]={place,maps}});
   st.bring=v("st-bring");st.policy=v("st-policy");
-  st.pkgVersion=7;st.locVersion=2;return st}
+  st.pkgVersion=8;st.locVersion=2;return st}
 function reSettings(){document.activeElement?.blur?.();renderSettings()}
 $("v-settings").addEventListener("click",async e=>{
   const t=e.target.closest("button");if(!t)return;const a=t.dataset.act;
