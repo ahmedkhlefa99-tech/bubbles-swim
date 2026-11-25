@@ -528,7 +528,7 @@ function renderBook(){
     const order=Object.keys(TYPES),pk=[...st.packages].sort((a,b)=>order.indexOf(typeOfPkg(a))-order.indexOf(typeOfPkg(b))||(a.count||0)-(b.count||0));
     const optName=p=>{const t=typeOfPkg(p);return t==="sib"?`Siblings — ${p.count||2} together`:TYPES[t].name+(p.minutes&&t!=="baby"?` (${p.minutes} min)`:"")+(pk.filter(x=>typeOfPkg(x)===t).length>1?` · ${p.sessions} sessions`:"")};
     const sel=f.pkg&&st.packages.find(x=>x.id===f.pkg);if(sel)f.ptype=typeOfPkg(sel);
-    const desc={trial:"One <b>free trial class for kids</b> — meet the coach and try the pool before choosing a package. No payment needed.",agroup:"Group lessons for adults (16+), <b>up to 4 swimmers</b>. We start once 2 swimmers have joined.",lgroup:"Ladies-only group, <b>up to 4 swimmers</b>. We start once 2 swimmers have joined.",p1:"One swimmer with the coach.",baby:"One baby with the coach — gentle water confidence for little ones.",p2:"Two swimmers share the session with one coach.",group:"Small groups of <b>up to 3 kids</b>. We start once 2 swimmers have joined, and we'll confirm on WhatsApp.",sib:"Brothers and sisters swim together in the same session with the same coach. The price is for all of them together."};
+    const desc={trial:"One <b>free trial class for kids aged 3–15</b> — meet the coach and try the pool before choosing a package. No payment needed.",agroup:"Group lessons for adults (16+), <b>up to 4 swimmers</b>. We start once 2 swimmers have joined.",lgroup:"Ladies-only group, <b>up to 4 swimmers</b>. We start once 2 swimmers have joined.",p1:"One swimmer with the coach.",baby:"One baby with the coach — gentle water confidence for little ones.",p2:"Two swimmers share the session with one coach.",group:"Small groups of <b>up to 3 kids</b>. We start once 2 swimmers have joined, and we'll confirm on WhatsApp.",sib:"Brothers and sisters swim together in the same session with the same coach. The price is for all of them together."};
     el.innerHTML=`<div class="card">${steps}<h2>2. Choose your package</h2>
       <label>Package</label>
       <select id="f-pkgsel"><option value="">— Choose a package —</option>${pk.map(p=>`<option value="${p.id}" ${f.pkg===p.id?"selected":""}>${esc(optName(p))}</option>`).join("")}</select>
@@ -581,6 +581,7 @@ function renderBook(){
       <div class="actions"><button class="btn ghost" data-act="back">Back</button><button class="btn ok" style="flex:1" data-act="submit">${custom?"Send request":"Confirm booking"}</button></div></div>`;
   }
 }
+function ageYears(t){t=String(t||"").replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d));const m=t.match(/\d+(\.\d+)?/);if(!m)return null;const n=parseFloat(m[0]);return /month|mo\b|mths|شهر|شهور/i.test(t)?n/12:n}
 function readStep1(){const g=id=>$(id)?.value.trim()||"";S.form.child={childName:g("f-child"),age:g("f-age"),gender:g("f-gender"),level:g("f-level"),parentName:g("f-parent"),phone:g("f-phone").replace(/\s/g,""),location:g("f-loc"),notes:g("f-notes")}}
 function keepReq(){const f=S.form;for(const i of [0,1]){if($("f-rd"+i))f.req[i]={day:$("f-rd"+i).value,time:$("f-rt"+i).value}}if($("f-alt"))f.alt=$("f-alt").value.trim()}
 function keep2(){const f=S.form;if($("f-c2n")){f.c2n=$("f-c2n").value.trim();f.c2a=$("f-c2a").value.trim()}
@@ -615,7 +616,7 @@ $("v-book").addEventListener("click",async e=>{
   if(a==="s2next"){keep2();
     if(f.ptype==="lgroup"&&f.child.gender!=="f")return toast("The ladies group is for women only — please choose another package");
     if(f.ptype==="agroup"){const ag=parseInt(f.child.age,10);if(ag&&ag<16)return toast("The adult group is for ages 16+ — please choose another package")}if(f.ptype==="p2"&&(!f.c2n||!f.c2a))return toast("Enter the second swimmer's name and age");
-    {const n=sibsNeeded();for(let i=0;i<n;i++){const x=f.sibs[i]||{};if(!x.name||!x.age)return toast("Enter each sibling's name and age")}}if(!f.pkg)return toast("Choose a package");if(f.ptype==="trial"){const ag=parseInt(f.child.age,10);if(ag&&ag>=16)return toast("The free trial class is for kids — please choose another package");f.perWeek=1}else f.perWeek=2;f.step=3;forceBook();scrollTo(0,0)}
+    {const n=sibsNeeded();for(let i=0;i<n;i++){const x=f.sibs[i]||{};if(!x.name||!x.age)return toast("Enter each sibling's name and age")}}if(!f.pkg)return toast("Choose a package");if(f.ptype==="trial"){const ag=ageYears(f.child.age);if(ag!==null&&ag>=16)return toast("The free trial class is for kids — please choose another package");if(ag!==null&&ag<3)return toast("The free trial class is for kids aged 3+ — for babies, please choose Baby swimming");f.perWeek=1}else f.perWeek=2;f.step=3;forceBook();scrollTo(0,0)}
   if(a==="s3next"){f.start=$("f-start").value;if(!f.start)return toast("Choose a start date");
     if(f.mode==="custom"){keepReq();
       const rq=f.ptype==="trial"?f.req.slice(0,1):f.req;
